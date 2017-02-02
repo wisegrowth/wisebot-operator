@@ -6,7 +6,7 @@ GO ?= go
 
 pi: clean
 	@echo "[pi] Building..."
-	@GOOS=linux GOARCH=arm $(GO) build -o $(BIN)
+	@GOOS=linux GOARM=7 GOARCH=arm $(GO) build -o $(BIN)
 
 build b: clean
 	@echo "[pi] Building..."
