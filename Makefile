@@ -12,6 +12,10 @@ build b: clean
 	@echo "[pi] Building..."
 	@$(GO) build -o $(BIN)
 
+run r:
+	@echo "[run] Running..."
+	@$(GO) run main.go output.go
+
 clean:
 	@echo "[clean] Removing $(BIN)..."
 	@rm -rf bin/*
@@ -24,4 +28,4 @@ deploy: pi
 	@echo "[deploy] Starting..."
 	@scp $(BIN) pi@$(PI_IP):~
 
-.PHONY: pi build b clean upload deploy
+.PHONY: pi build b clean upload deploy run
