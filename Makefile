@@ -12,9 +12,9 @@ build b: clean
 	@echo "[pi] Building..."
 	@$(GO) build -o $(BIN)
 
-run r:
+run r: build
 	@echo "[run] Running..."
-	@$(GO) run main.go output.go
+	@$(BIN)
 
 clean:
 	@echo "[clean] Removing $(BIN)..."
