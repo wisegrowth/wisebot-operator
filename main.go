@@ -14,27 +14,57 @@ const (
 	weisebotLogPath = "wisebot.logs"
 )
 
-func main() {
-	wisebotLog, err := os.OpenFile(weisebotLogPath, os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		if os.IsNotExist(err) {
-			wisebotLog, err = os.Create(weisebotLogPath)
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			panic(err)
+type command struct {
+	Log io.WriteCloser
+	Cmd *exec.Cmd
+}
+
+type commands []*command
+
+func (c *commands) Add(cmd *command) {
+	*c = append(*c, cmd)
+}
+
+func (c *commands) Start() error {
+	for _, cmd := range *c {
+		if err := cmd.Start(); err != nil {
+			return err
 		}
 	}
-	defer wisebotLog.Close()
 
-	wisebot := exec.Command("node", "wisebot.js")
-	out, err := wisebot.StdoutPipe()
-	if err != nil {
-		panic(err)
+	return nil
+}
+
+func (c *commands) Stop() error {
+	for _, cmd := range *c {
+		if err := cmd.Stop(); err != nil {
+			return err
+		}
 	}
 
-	log.Println("starting wisebot")
+	return nil
+}
+
+func newCommand(log io.WriteCloser, name string, args ...string) *command {
+	return &command{
+		Log: log,
+		Cmd: exec.Command(name, args...),
+	}
+}
+
+func (c *command) Stop() error {
+	defer c.Log.Close()
+	return c.Cmd.Process.Kill()
+}
+
+func (c *command) Start() error {
+	out, err := c.Cmd.StdoutPipe()
+	if err != nil {
+		c.Log.Close()
+		return err
+	}
+
+	log.Println("Starting", c.Cmd.Args)
 
 	go func() {
 		for {
@@ -42,16 +72,57 @@ func main() {
 			l, _, err := r.ReadLine()
 			if err != nil {
 				if err != io.EOF {
+					c.Log.Close()
 					panic(err)
 				}
 			}
 
-			wisebotLog.Write(l)
-			wisebotLog.WriteString("\n")
+			c.Log.Write(l)
+			c.Log.Write([]byte("\n"))
 		}
 	}()
 
-	if err := wisebot.Start(); err != nil {
+	if err := c.Cmd.Start(); err != nil {
+		c.Log.Close()
+		return err
+	}
+
+	return nil
+}
+
+var (
+	cmds commands
+)
+
+func newFile(name string) (*os.File, error) {
+	file, err := os.OpenFile(name, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		if os.IsNotExist(err) {
+			file, err = os.Create(name)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	return file, err
+}
+
+func main() {
+	logFile, err := newFile("wisebot.logs")
+	if err != nil {
+		panic(err)
+	}
+
+	wisebot1 := newCommand(logFile, "node", "wisebot1.js")
+	wisebot2 := newCommand(logFile, "node", "wisebot2.js")
+
+	cmds.Add(wisebot1)
+	cmds.Add(wisebot2)
+
+	if err := cmds.Start(); err != nil {
 		panic(err)
 	}
 
@@ -61,7 +132,9 @@ func main() {
 	go func() {
 		for sig := range c {
 			fmt.Println("Signal received", sig)
-			wisebot.Process.Kill()
+			if err := cmds.Stop(); err != nil {
+				log.Println(err)
+			}
 			quit <- struct{}{}
 		}
 	}()
