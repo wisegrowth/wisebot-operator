@@ -14,28 +14,6 @@ var (
 	gpioFileName = regexp.MustCompile("\\Agpio(\\d{1,2})\\z")
 )
 
-// availablePins look for exported pins and
-func availablePins() ([]string, error) {
-	files, err := ioutil.ReadDir(gpioDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var pins []string
-
-	for _, f := range files {
-		name := f.Name()
-		matches := gpioFileName.FindStringSubmatch(name)
-
-		if len(matches) > 0 {
-			pin := matches[1]
-			pins = append(pins, pin)
-		}
-	}
-
-	return pins, nil
-}
-
 // TurnOffPins shuts down all GPIO pins,
 // if all pins are turned off it returns a nil error
 func TurnOffPins() error {
@@ -61,4 +39,26 @@ func TurnOffPins() error {
 	}
 
 	return nil
+}
+
+// availablePins look for exported pins and
+func availablePins() ([]string, error) {
+	files, err := ioutil.ReadDir(gpioDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var pins []string
+
+	for _, f := range files {
+		name := f.Name()
+		matches := gpioFileName.FindStringSubmatch(name)
+
+		if len(matches) > 0 {
+			pin := matches[1]
+			pins = append(pins, pin)
+		}
+	}
+
+	return pins, nil
 }
