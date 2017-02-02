@@ -67,12 +67,10 @@ ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 
 network={
-
     ssid="[[.ESSID]]"
     scan_ssid=1
     key_mgmt=[[if .WPA]]WPA-PSK[[else]]NONE[[end]]
     [[if .Password]][[if .WPA]]psk[[else]]wep_key0[[end]]="[[.Password]]"[[end]]
-
 }
 `
 )
