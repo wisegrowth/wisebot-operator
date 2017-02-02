@@ -40,18 +40,17 @@ func AvailableNetworks() ([]*Network, error) {
 		for _, line := range lines {
 			if strings.Contains(line, "Address") {
 				i := strings.Index(line, ":")
-				n.Address = line[i+2:]
+				n.Address = strings.TrimSpace(line[i+1:])
 			}
 
 			if strings.Contains(line, "ESSID") {
 				i := strings.Index(line, ":")
-				essid := string(line[i+1])
-				n.ESSID = strings.Trim(essid, "\"")
+				n.ESSID = strings.Trim(line[i+1:], "\"")
 			}
 
 			if strings.Contains(line, "IE: IEEE") {
 				i := strings.Index(line, "/")
-				n.Encryption = line[i+1:]
+				n.Encryption = strings.TrimSpace(line[i+1:])
 			}
 		}
 
