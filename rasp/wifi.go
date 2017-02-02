@@ -14,7 +14,12 @@ type Network struct {
 	ESSID      string `json:"essid"`
 	Encryption string `json:"encryption"`
 	Password   string `json:"-"`
-	WPA        bool   `json:"-"`
+}
+
+// IsWPA returns true if the encryption is
+// wpa
+func (n *Network) IsWPA() bool {
+	return strings.Contains(n.Encryption, "WPA")
 }
 
 // AvailableNetworks return an array of available
@@ -47,8 +52,6 @@ func AvailableNetworks() ([]*Network, error) {
 			if strings.Contains(line, "IE: IEEE") {
 				i := strings.Index(line, "/")
 				n.Encryption = line[i+1:]
-
-				n.WPA = strings.Contains(n.Encryption, "WPA")
 			}
 		}
 
@@ -69,8 +72,8 @@ update_config=1
 network={
     ssid="[[.ESSID]]"
     scan_ssid=1
-    key_mgmt=[[if .WPA]]WPA-PSK[[else]]NONE[[end]]
-    [[if .Password]][[if .WPA]]psk[[else]]wep_key0[[end]]="[[.Password]]"[[end]]
+    key_mgmt=[[if .IsWPA ]]WPA-PSK[[else]]NONE[[end]]
+    [[if .Password]][[if .IsWPA ]]psk[[else]]wep_key0[[end]]="[[.Password]]"[[end]]
 }
 `
 )
