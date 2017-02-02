@@ -45,8 +45,8 @@ func AvailableNetworks() ([]*Network, error) {
 
 			if strings.Contains(line, "ESSID") {
 				i := strings.Index(line, ":")
-				essid := line[i+1:]               // surrounded with quotes
-				n.ESSID = essid[1 : len(essid)-1] // without quotes
+				essid := string(line[i+1])
+				n.ESSID = strings.Trim(essid, "\"")
 			}
 
 			if strings.Contains(line, "IE: IEEE") {
