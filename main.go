@@ -1,97 +1,20 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
+
+	"github.com/WiseGrowth/operator/command"
 )
 
 const (
 	weisebotLogPath = "wisebot.logs"
 )
 
-type command struct {
-	Log io.WriteCloser
-	Cmd *exec.Cmd
-}
-
-type commands []*command
-
-func (c *commands) Add(cmd *command) {
-	*c = append(*c, cmd)
-}
-
-func (c *commands) Start() error {
-	for _, cmd := range *c {
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *commands) Stop() error {
-	for _, cmd := range *c {
-		if err := cmd.Stop(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func newCommand(log io.WriteCloser, name string, args ...string) *command {
-	return &command{
-		Log: log,
-		Cmd: exec.Command(name, args...),
-	}
-}
-
-func (c *command) Stop() error {
-	defer c.Log.Close()
-	return c.Cmd.Process.Kill()
-}
-
-func (c *command) Start() error {
-	out, err := c.Cmd.StdoutPipe()
-	if err != nil {
-		c.Log.Close()
-		return err
-	}
-
-	log.Println("Starting", c.Cmd.Args)
-
-	go func() {
-		for {
-			r := bufio.NewReader(out)
-			l, _, err := r.ReadLine()
-			if err != nil {
-				if err != io.EOF {
-					c.Log.Close()
-					panic(err)
-				}
-			}
-
-			c.Log.Write(l)
-			c.Log.Write([]byte("\n"))
-		}
-	}()
-
-	if err := c.Cmd.Start(); err != nil {
-		c.Log.Close()
-		return err
-	}
-
-	return nil
-}
-
 var (
-	cmds commands
+	cmds command.Commands
 )
 
 func newFile(name string) (*os.File, error) {
@@ -116,8 +39,8 @@ func main() {
 		panic(err)
 	}
 
-	wisebot1 := newCommand(logFile, "node", "wisebot1.js")
-	wisebot2 := newCommand(logFile, "node", "wisebot2.js")
+	wisebot1 := command.NewCommand(logFile, "node", "wisebot1.js")
+	wisebot2 := command.NewCommand(logFile, "node", "wisebot2.js")
 
 	cmds.Add(wisebot1)
 	cmds.Add(wisebot2)
