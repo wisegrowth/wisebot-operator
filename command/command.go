@@ -3,7 +3,7 @@ package command
 import (
 	"bufio"
 	"io"
-	"log"
+	"os"
 	"os/exec"
 )
 
@@ -12,6 +12,76 @@ import (
 type Command struct {
 	Log io.WriteCloser
 	Cmd *exec.Cmd
+}
+
+// CloseLogger safely close the command's logger.
+// If the logger is just os.Stdout, it does not
+// close it.
+func (c *Command) CloseLogger() error {
+	if c.Log == nil || c.Log == os.Stdout {
+		return nil
+	}
+
+	return c.Log.Close()
+}
+
+// Stop stops the command and closes the log file
+// if exists.
+func (c *Command) Stop() error {
+	if c.Log != nil {
+		defer c.CloseLogger()
+	}
+	return c.Cmd.Process.Kill()
+}
+
+// Wait only proxies the function call to the
+// os.Command.Wait function.
+func (c *Command) Wait() error {
+	return c.Cmd.Wait()
+}
+
+// Start starts the process and pipes the command's
+// output to the log file. If at any point there is an error
+// it also closes the file if exists.
+func (c *Command) Start() error {
+	out, err := c.Cmd.StdoutPipe()
+	if err != nil {
+		c.CloseLogger()
+		return err
+	}
+
+	go func() {
+		if c.Log == nil {
+			return
+		}
+
+		for {
+			r := bufio.NewReader(out)
+			l, _, err := r.ReadLine()
+			if err != nil {
+				if err != io.EOF {
+					c.CloseLogger()
+					panic(err)
+				}
+			}
+
+			c.Log.Write(l)
+			c.Log.Write([]byte("\n"))
+		}
+	}()
+
+	if err := c.Cmd.Start(); err != nil {
+		c.CloseLogger()
+		return err
+	}
+
+	return nil
+}
+
+// Success just proxies the function call to the
+// command.ProcessState struct.
+func (c *Command) Success() bool {
+	return c.Cmd.ProcessState.Success()
 }
 
 // Commands represents a set of commands.
@@ -54,53 +124,4 @@ func NewCommand(log io.WriteCloser, name string, args ...string) *Command {
 		Log: log,
 		Cmd: exec.Command(name, args...),
 	}
-}
-
-// Stop stops the command and closes the log file
-// if exists.
-func (c *Command) Stop() error {
-	if c.Log != nil {
-		defer c.Log.Close()
-	}
-	return c.Cmd.Process.Kill()
-}
-
-// Start starts the process and pipes the command's
-// output to the log file. If at any point there is an error
-// it also closes the file if exists.
-func (c *Command) Start() error {
-	out, err := c.Cmd.StdoutPipe()
-	if err != nil {
-		if c.Log != nil {
-			c.Log.Close()
-		}
-		return err
-	}
-
-	log.Println("Starting", c.Cmd.Args)
-
-	go func() {
-		for {
-			r := bufio.NewReader(out)
-			l, _, err := r.ReadLine()
-			if err != nil {
-				if err != io.EOF {
-					c.Log.Close()
-					panic(err)
-				}
-			}
-
-			c.Log.Write(l)
-			c.Log.Write([]byte("\n"))
-		}
-	}()
-
-	if err := c.Cmd.Start(); err != nil {
-		if c.Log != nil {
-			c.Log.Close()
-		}
-		return err
-	}
-
-	return nil
 }

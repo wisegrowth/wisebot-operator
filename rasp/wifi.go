@@ -1,11 +1,15 @@
 package rasp
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/WiseGrowth/operator/command"
 )
 
 // Network represents an available wifi network
@@ -87,5 +91,50 @@ func SetupWifi(n *Network) error {
 	defer file.Close()
 	t := template.Must(template.New("wifiConfigWpa").Delims("[[", "]]").Parse(wifiConfigTmpl))
 
-	return t.Execute(file, n)
+	if err := t.Execute(file, n); err != nil {
+		return err
+	}
+
+	// If a use the os.Stdout, the command sometimes fail
+	// perhaps we should look into it.
+	cmd := command.NewCommand(nil, "wpa_cli", "reconfigure")
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+
+	return waitForNetwork()
+}
+
+func waitForNetwork() error {
+	timeout := time.NewTimer(time.Minute * 3)
+	sleepDuration := time.Second * 4
+
+	for {
+		ping := command.NewCommand(nil, "ping", "-w", "1", "8.8.8.8")
+
+		select {
+		case <-timeout.C:
+			return errors.New("Could not connect to the wifi")
+		default:
+			if err := ping.Start(); err != nil {
+				return err
+			}
+			if err := ping.Wait(); err != nil {
+				// Ignore exit errors
+				if _, ok := (err).(*exec.ExitError); !ok {
+					return err
+				}
+			}
+
+			if ping.Success() {
+				return nil
+			}
+
+			time.Sleep(sleepDuration)
+		}
+	}
 }
