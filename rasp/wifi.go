@@ -109,6 +109,13 @@ func SetupWifi(n *Network) error {
 	return waitForNetwork()
 }
 
+// waitForNetwork just perform a ping command to google's DNS server
+// to check if there the network is up or down.
+// The command will execute for 3 minutes and it sleeps 4 seconds before
+// trying again if the ping command fails.
+// The ping command exec.ExitError are ignored since this tell us that
+// the network is up or down, all other errors are returned since
+// are unexpected errors.
 func waitForNetwork() error {
 	timeout := time.NewTimer(time.Minute * 3)
 	sleepDuration := time.Second * 4
