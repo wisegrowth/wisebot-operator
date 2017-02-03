@@ -1,6 +1,6 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
-PI_IP=192.168.8.101
+PI_IP=192.168.8.103
 
 GO ?= go
 
