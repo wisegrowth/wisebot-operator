@@ -95,7 +95,7 @@ func SetupWifi(n *Network) error {
 		return err
 	}
 
-	// If a use the os.Stdout, the command sometimes fail
+	// If we use the os.Stdout as the log file, the command sometimes fail
 	// perhaps we should look into it.
 	cmd := command.NewCommand(nil, "wpa_cli", "reconfigure")
 	if err := cmd.Start(); err != nil {
