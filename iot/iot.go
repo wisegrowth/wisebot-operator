@@ -114,6 +114,61 @@ type Options struct {
 	WebSocketProtocol string
 }
 
+// OptionSetter is a func that overwrites the default
+// Option value
+type OptionSetter func(*Options)
+
+// SetClientID sets the Options' ClientID attribute
+func SetClientID(ct string) OptionSetter {
+	return func(o *Options) {
+		o.ClientID = ct
+	}
+}
+
+// SetDebug sets the Options' Debug attribute
+func SetDebug(debug bool) OptionSetter {
+	return func(o *Options) {
+		o.Debug = debug
+	}
+}
+
+// SetProtocol sets the Options' Protocol attribute
+func SetProtocol(p string) OptionSetter {
+	return func(o *Options) {
+		o.Protocol = p
+	}
+}
+
+// SetPort sets the Options' Port attribute
+func SetPort(p uint) OptionSetter {
+	return func(o *Options) {
+		o.Port = p
+	}
+}
+
+// SetWebSocketProtocol sets the Options' Protocol attribute
+func SetWebSocketProtocol(wsp string) OptionSetter {
+	return func(o *Options) {
+		o.WebSocketProtocol = wsp
+	}
+}
+
+// NewOptions initialize a Options struct with default values
+// and then applies the received OptionSetter
+func NewOptions(optSetters ...OptionSetter) *Options {
+	opts := &Options{
+		Protocol:          "wss",
+		Port:              443,
+		WebSocketProtocol: "wss",
+	}
+
+	for _, setter := range optSetters {
+		setter(opts)
+	}
+
+	return opts
+}
+
 func hmacSHA256(key []byte, data string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(data))
