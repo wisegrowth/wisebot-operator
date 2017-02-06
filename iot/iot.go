@@ -1,5 +1,11 @@
 package iot
 
+/*
+This package let us use the aws iot service by using
+the mqtt protocol in an easier way that using the raw
+protocol.
+*/
+
 import (
 	"crypto/tls"
 	"fmt"
@@ -8,7 +14,8 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
-// Client ...
+// Client is a wrapper on top of `MQTT.Client` that
+// makes connecting to aws iot service easier.
 type Client struct {
 	cert string
 	key  string
@@ -16,6 +23,7 @@ type Client struct {
 
 	host string
 	port uint
+	path string
 
 	qos byte
 
@@ -26,6 +34,8 @@ type Client struct {
 // Connect creates a new mqtt client and uses the ClientOptions
 // generated in the NewClient function to connect with
 // the provided host and port.
+// This method takes the client's host, port and path and generates
+// the broker url where to connect.
 func (c *Client) Connect() error {
 	if c.Client != nil {
 		return nil
@@ -52,14 +62,22 @@ func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
 	return nil
 }
 
-// Config ...
+// Config represents an attribute config setter for the
+// `Client`.
 type Config func(*Client)
 
-// NewClient ...
-func NewClient(configs ...Config) *Client {
+// NewClient returns a configured `Client`. Is mandatory
+// to provide valid tls certificates or it'll return an error
+// instead.
+// By default it generates a client with:
+// - port: 8883
+// - qos: 1
+// - path: /mqtt
+func NewClient(configs ...Config) (*Client, error) {
 	client := &Client{
 		port: 8883,
 		qos:  byte(1),
+		path: "/mqtt",
 	}
 
 	for _, config := range configs {
@@ -68,7 +86,7 @@ func NewClient(configs ...Config) *Client {
 
 	cer, err := tls.LoadX509KeyPair(client.cert, client.key)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	client.clientOptions = &MQTT.ClientOptions{
@@ -79,47 +97,54 @@ func NewClient(configs ...Config) *Client {
 		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
 	}
 
-	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d/mqtt", client.host, client.port))
+	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
 
-	return client
+	return client, nil
 }
 
-// SetCert ...
+// SetCert sets the client ssl certificate.
 func SetCert(cert string) Config {
 	return func(c *Client) {
 		c.cert = cert
 	}
 }
 
-// SetKey ...
+// SetKey sets the client ssl private key.
 func SetKey(key string) Config {
 	return func(c *Client) {
 		c.key = key
 	}
 }
 
-// SetClientID ...
+// SetClientID sets the mqtt client id.
 func SetClientID(id string) Config {
 	return func(c *Client) {
 		c.id = id
 	}
 }
 
-// SetHost ...
+// SetHost sets the host where to connect.
 func SetHost(host string) Config {
 	return func(c *Client) {
 		c.host = host
 	}
 }
 
-// SetPort ...
+// SetPort sets the port where to connect.
 func SetPort(port uint) Config {
 	return func(c *Client) {
 		c.port = port
 	}
 }
 
-// SetQOS ...
+// SetPath sets the path where to connect.
+func SetPath(path string) Config {
+	return func(c *Client) {
+		c.path = path
+	}
+}
+
+// SetQOS sets the client's QualityOfService level.
 func SetQOS(qos int) Config {
 	return func(c *Client) {
 		c.qos = byte(qos)
