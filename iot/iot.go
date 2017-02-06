@@ -144,8 +144,8 @@ func SetPath(path string) Config {
 	}
 }
 
-// SetQOS sets the client's QualityOfService level.
-func SetQOS(qos int) Config {
+// SetQoS sets the client's QualityOfService level.
+func SetQoS(qos int) Config {
 	return func(c *Client) {
 		c.qos = byte(qos)
 	}
