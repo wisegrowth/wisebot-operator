@@ -14,10 +14,10 @@ type Command struct {
 	Cmd *exec.Cmd
 }
 
-// CloseLogger safely close the command's logger.
+// CloseLog safely close the command's logger.
 // If the logger is just os.Stdout, it does not
 // close it.
-func (c *Command) CloseLogger() error {
+func (c *Command) CloseLog() error {
 	if c.Log == nil || c.Log == os.Stdout {
 		return nil
 	}
@@ -29,7 +29,7 @@ func (c *Command) CloseLogger() error {
 // if exists.
 func (c *Command) Stop() error {
 	if c.Log != nil {
-		defer c.CloseLogger()
+		defer c.CloseLog()
 	}
 	return c.Cmd.Process.Kill()
 }
@@ -46,7 +46,7 @@ func (c *Command) Wait() error {
 func (c *Command) Start() error {
 	out, err := c.Cmd.StdoutPipe()
 	if err != nil {
-		c.CloseLogger()
+		c.CloseLog()
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (c *Command) Start() error {
 			l, _, err := r.ReadLine()
 			if err != nil {
 				if err != io.EOF {
-					c.CloseLogger()
+					c.CloseLog()
 					panic(err)
 				}
 			}
@@ -71,7 +71,7 @@ func (c *Command) Start() error {
 	}()
 
 	if err := c.Cmd.Start(); err != nil {
-		c.CloseLogger()
+		c.CloseLog()
 		return err
 	}
 
