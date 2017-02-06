@@ -1,185 +1,152 @@
 package iot
 
+/*
+This package let us use the aws iot service by using
+the mqtt protocol in an easier way that using the raw
+protocol.
+*/
+
 import (
-	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"crypto/tls"
 	"fmt"
-	"html/template"
-	"strings"
 	"time"
+
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
-const (
-	websocketPath   = "/mqtt"
-	dateFormat      = "20060102T150405Z"
-	dateStringTempl = "%04d%02d%02d"
-	queryParamTempl = `X-Amz-Algorithm=AWS4-HMAC-SHA256
-	&X-Amz-Credential={{ .AccessKeyID }}%2F{{ .DateTime }}%2F{{ .Region }}%2F{{ .Service }}%2Faws4_request
-	&X-Amz-Date={{ .Date }}
-	&X-Amz-SignedHeaders=host
-	`
-)
-
-var (
-	queryParamTemplate = template.Must(template.New("queryParam").Parse(queryParamTempl))
-	spaceRemover       = strings.NewReplacer(" ", "", "\n", "", "\t", "")
-)
-
-// Client holds the needed data in order to connect
-// to amazon's iot service.
+// Client is a wrapper on top of `MQTT.Client` that
+// makes connecting to aws iot service easier.
 type Client struct {
-	AccessKeyID string
-	SecretKey   string
-	Region      string
-	Service     string
-	Host        string
-	Port        uint
+	cert string
+	key  string
+	id   string
+
+	host string
+	port uint
+	path string
+
+	qos byte
+
+	clientOptions *MQTT.ClientOptions
+	MQTT.Client
 }
 
-// hostname concatenates the host in lowercase and the port.
-func (c *Client) hostname() string {
-	return fmt.Sprintf("%s:%d", strings.ToLower(c.Host), c.Port)
-}
-
-// PrepareWebSocketURL returns a signed url for aws iot service.
-// This method uses aws signature v4 to sign the url.
-func (c *Client) PrepareWebSocketURL(options *Options) string {
-	now := time.Now().UTC()
-
-	ri := &queryParamTemplateInfo{
-		Client:   c,
-		Date:     dateString(now),
-		DateTime: dateTimeString(now),
+// Connect creates a new mqtt client and uses the ClientOptions
+// generated in the NewClient function to connect with
+// the provided host and port.
+// This method takes the client's host, port and path and generates
+// the broker url where to connect.
+func (c *Client) Connect() error {
+	if c.Client != nil {
+		return nil
 	}
 
-	var buf []byte
-	bufw := bytes.NewBuffer(buf)
-	queryParamTemplate.Execute(bufw, ri)
-
-	queryParams := spaceRemover.Replace(string(bufw.Bytes()))
-
-	hasher := sha256.New()
-	hasher.Write([]byte(""))
-	payload := hex.EncodeToString(hasher.Sum(nil))
-
-	hostname := c.hostname()
-	canonicalHeaders := fmt.Sprintf("host:%s\n", hostname)
-	canonicalRequest := fmt.Sprintf("GET\n%s\n%s\n%s\nhost\n%s", websocketPath, queryParams, canonicalHeaders, payload)
-
-	canonicalRequestHasher := sha256.New()
-	canonicalRequestHasher.Write([]byte(canonicalRequest))
-
-	stringToSign := fmt.Sprintf("AWS4-HMAC-SHA256\n%s\n%s/%s/%s/aws4_request\n%s", dateTimeString(now), dateString(now), c.Region, c.Service, canonicalRequestHasher.Sum(nil))
-	signingKey := signatureKey(c.SecretKey, c.Region, c.Service, now)
-
-	signature := hmacSHA256(signingKey, stringToSign)
-
-	return fmt.Sprintf("%s://%s%s?%s&X-Amz-Signature=%s", options.Protocol, hostname, websocketPath, queryParams, signature)
-}
-
-// NewClient returns an initialized Client
-func NewClient(accessID, region, service, host string, port uint, t time.Time) *Client {
-	return &Client{
-		AccessKeyID: accessID,
-		Region:      region,
-		Service:     service,
-		Host:        host,
-		Port:        port,
+	mqttClient := MQTT.NewClient(c.clientOptions)
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
 	}
+
+	c.Client = mqttClient
+
+	return nil
 }
 
-func signatureKey(secret, region, service string, date time.Time) []byte {
-	h := hmacSHA256([]byte("AWS4"+secret), dateString(date))
-	h = hmacSHA256(h, region)
-	h = hmacSHA256(h, service)
-	return hmacSHA256(h, "aws4_request")
+// Subscribe is a convenience function that proxies
+// the function call to MQTT.Client.Subscribe in order
+// to subscribe to  an specific topic and MQTT.MessageHandler.
+func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
+	if token := c.Client.Subscribe(topic, c.qos, onMessage); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+
+	return nil
 }
 
-type queryParamTemplateInfo struct {
-	*Client
+// Config represents an attribute config setter for the
+// `Client`.
+type Config func(*Client)
 
-	Date     string
-	DateTime string
+// NewClient returns a configured `Client`. Is mandatory
+// to provide valid tls certificates or it'll return an error
+// instead.
+// By default it generates a client with:
+// - port: 8883
+// - qos: 1
+// - path: /mqtt
+func NewClient(configs ...Config) (*Client, error) {
+	client := &Client{
+		port: 8883,
+		qos:  byte(1),
+		path: "/mqtt",
+	}
+
+	for _, config := range configs {
+		config(client)
+	}
+
+	cer, err := tls.LoadX509KeyPair(client.cert, client.key)
+	if err != nil {
+		return nil, err
+	}
+
+	client.clientOptions = &MQTT.ClientOptions{
+		ClientID:             client.id,
+		CleanSession:         true,
+		MaxReconnectInterval: 1 * time.Second,
+		KeepAlive:            30 * time.Second,
+		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
+	}
+
+	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
+
+	return client, nil
 }
 
-// Options represents the aws iot service options in order
-// to connect to it.
-type Options struct {
-	ClientID          string
-	Debug             bool
-	Protocol          string
-	Port              uint
-	WebSocketProtocol string
-}
-
-// OptionSetter is a func that overwrites the default
-// Option value
-type OptionSetter func(*Options)
-
-// SetClientID sets the Options' ClientID attribute
-func SetClientID(ct string) OptionSetter {
-	return func(o *Options) {
-		o.ClientID = ct
+// SetCert sets the client ssl certificate.
+func SetCert(cert string) Config {
+	return func(c *Client) {
+		c.cert = cert
 	}
 }
 
-// SetDebug sets the Options' Debug attribute
-func SetDebug(debug bool) OptionSetter {
-	return func(o *Options) {
-		o.Debug = debug
+// SetKey sets the client ssl private key.
+func SetKey(key string) Config {
+	return func(c *Client) {
+		c.key = key
 	}
 }
 
-// SetProtocol sets the Options' Protocol attribute
-func SetProtocol(p string) OptionSetter {
-	return func(o *Options) {
-		o.Protocol = p
+// SetClientID sets the mqtt client id.
+func SetClientID(id string) Config {
+	return func(c *Client) {
+		c.id = id
 	}
 }
 
-// SetPort sets the Options' Port attribute
-func SetPort(p uint) OptionSetter {
-	return func(o *Options) {
-		o.Port = p
+// SetHost sets the host where to connect.
+func SetHost(host string) Config {
+	return func(c *Client) {
+		c.host = host
 	}
 }
 
-// SetWebSocketProtocol sets the Options' Protocol attribute
-func SetWebSocketProtocol(wsp string) OptionSetter {
-	return func(o *Options) {
-		o.WebSocketProtocol = wsp
+// SetPort sets the port where to connect.
+func SetPort(port uint) Config {
+	return func(c *Client) {
+		c.port = port
 	}
 }
 
-// NewOptions initialize a Options struct with default values
-// and then applies the received OptionSetter
-func NewOptions(optSetters ...OptionSetter) *Options {
-	opts := &Options{
-		Protocol:          "wss",
-		Port:              443,
-		WebSocketProtocol: "wss",
+// SetPath sets the path where to connect.
+func SetPath(path string) Config {
+	return func(c *Client) {
+		c.path = path
 	}
+}
 
-	for _, setter := range optSetters {
-		setter(opts)
+// SetQoS sets the client's QualityOfService level.
+func SetQoS(qos int) Config {
+	return func(c *Client) {
+		c.qos = byte(qos)
 	}
-
-	return opts
-}
-
-func hmacSHA256(key []byte, data string) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(data))
-	return mac.Sum(nil)
-}
-
-func dateTimeString(t time.Time) string {
-	return t.UTC().Format(dateFormat)
-}
-
-func dateString(t time.Time) string {
-	date := t.UTC()
-	return fmt.Sprintf(dateStringTempl, date.Year(), date.Month(), date.Day())
 }
