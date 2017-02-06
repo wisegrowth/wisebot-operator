@@ -1,14 +1,18 @@
 package rasp
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/WiseGrowth/operator/command"
 )
 
-// Network represents an available wifi network
+// Network represents an available wifi network.
 type Network struct {
 	Address    string `json:"address"`
 	ESSID      string `json:"essid"`
@@ -17,13 +21,13 @@ type Network struct {
 }
 
 // IsWPA returns true if the encryption is
-// wpa
+// wpa.
 func (n *Network) IsWPA() bool {
 	return strings.Contains(n.Encryption, "WPA")
 }
 
 // AvailableNetworks return an array of available
-// wifi networks
+// wifi networks.
 func AvailableNetworks() ([]*Network, error) {
 	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
 	if err != nil {
@@ -77,7 +81,7 @@ network={
 `
 )
 
-// SetupWifi configures the raspberry pi wifi network
+// SetupWifi configures the raspberry pi wifi network.
 func SetupWifi(n *Network) error {
 	file, err := os.OpenFile(wpaSupplicantPath, os.O_WRONLY, os.ModeAppend)
 	if err != nil {
@@ -87,5 +91,57 @@ func SetupWifi(n *Network) error {
 	defer file.Close()
 	t := template.Must(template.New("wifiConfigWpa").Delims("[[", "]]").Parse(wifiConfigTmpl))
 
-	return t.Execute(file, n)
+	if err := t.Execute(file, n); err != nil {
+		return err
+	}
+
+	// If we use the os.Stdout as the log file, the command sometimes fail
+	// perhaps we should look into it.
+	cmd := command.NewCommand(nil, "wpa_cli", "reconfigure")
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+
+	return waitForNetwork()
+}
+
+// waitForNetwork just perform a ping command to google's DNS server
+// to check if the network is up or down.
+// The command will execute for 3 minutes and it sleeps 4 seconds before
+// trying again if the ping command fails.
+// The ping command ignores the exec.ExitError errors since this tell us that
+// the network is up or down, all other errors are returned since
+// are unexpected errors.
+func waitForNetwork() error {
+	timeout := time.NewTimer(time.Minute * 3)
+	sleepDuration := time.Second * 4
+
+	for {
+		ping := command.NewCommand(nil, "ping", "-w", "1", "8.8.8.8")
+
+		select {
+		case <-timeout.C:
+			return errors.New("Could not connect to the wifi")
+		default:
+			if err := ping.Start(); err != nil {
+				return err
+			}
+			if err := ping.Wait(); err != nil {
+				// Ignore exit errors
+				if _, ok := (err).(*exec.ExitError); !ok {
+					return err
+				}
+			}
+
+			if ping.Success() {
+				return nil
+			}
+
+			time.Sleep(sleepDuration)
+		}
+	}
 }
