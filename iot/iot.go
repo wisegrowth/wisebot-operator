@@ -42,7 +42,7 @@ func (c *Client) Connect() error {
 	}
 
 	mqttClient := MQTT.NewClient(c.clientOptions)
-	if token := c.Client.Connect(); token.Wait() && token.Error() != nil {
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
