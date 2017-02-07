@@ -40,11 +40,14 @@ type Client struct {
 	qos byte
 
 	clientOptions *MQTT.ClientOptions
-	onConnect     func(MQTT.Client)
 
 	sync.RWMutex
 	MQTT.Client
+
+	subscriptions subscriptionsStore
 }
+
+type subscriptionsStore map[string]MQTT.MessageHandler
 
 // Connect creates a new mqtt client and uses the ClientOptions
 // generated in the NewClient function to connect with
@@ -82,6 +85,9 @@ func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
 		return token.Error()
 	}
 
+	// TODO(sebastianvera): Maybe handle topic replacement?
+	c.subscriptions[topic] = onMessage
+
 	return nil
 }
 
@@ -98,9 +104,10 @@ type Config func(*Client)
 // - path: /mqtt
 func NewClient(configs ...Config) (*Client, error) {
 	client := &Client{
-		port: 8883,
-		qos:  byte(1),
-		path: "/mqtt",
+		port:          8883,
+		qos:           byte(1),
+		path:          "/mqtt",
+		subscriptions: make(subscriptionsStore),
 	}
 
 	for _, config := range configs {
@@ -119,12 +126,20 @@ func NewClient(configs ...Config) (*Client, error) {
 		MaxReconnectInterval: 1 * time.Second,
 		KeepAlive:            30 * time.Second,
 		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
-		OnConnect:            client.onConnect,
+		OnConnect:            client.onConnect(),
 	}
 
 	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
 
 	return client, nil
+}
+
+func (c *Client) onConnect() MQTT.OnConnectHandler {
+	return func(client MQTT.Client) {
+		for topic, handler := range c.subscriptions {
+			c.Subscribe(topic, handler)
+		}
+	}
 }
 
 // SetCert sets the client ssl certificate.
@@ -173,14 +188,5 @@ func SetPath(path string) Config {
 func SetQoS(qos int) Config {
 	return func(c *Client) {
 		c.qos = byte(qos)
-	}
-}
-
-// SetOnConnect ...
-func SetOnConnect(onConnect func(*Client)) Config {
-	return func(c *Client) {
-		c.onConnect = func(client MQTT.Client) {
-			onConnect(c)
-		}
 	}
 }
