@@ -72,8 +72,8 @@ stop making usage of actionators as water pump, etc.
   },
   "meta": {
     "proccesses": [
-      { "name": "wisebot", "status": "running", "version": "1.0.1" },
-      { "name": "ble", "status": "updating", "version": "2.0.4" }
+      { "name": "wisebot", "status": "update:started", "version": "dfd09a7" },
+      { "name": "ble", "status": "running:", "version": "5482f18" }
     ]
   }
 }

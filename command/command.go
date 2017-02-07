@@ -2,16 +2,64 @@ package command
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
 )
 
+const (
+	statusIdle           = "idle"
+	statusRunning        = "running"
+	statusError          = "error"
+	statusUpdateStarted  = "update:started"
+	statusUpdateFinished = "update:finished"
+	statusDone           = "done"
+	statusStopped        = "stopped"
+)
+
 // Command represents a os level command, which can also
 // receive a logger file in order to dump the output to it.
 type Command struct {
-	Log io.WriteCloser
-	Cmd *exec.Cmd
+	Log io.WriteCloser `json:"-"`
+	Cmd *exec.Cmd      `json:"-"`
+
+	Slug    string
+	Version string
+
+	status string
+}
+
+// MarshalJSON implements the json interface
+func (c *Command) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Slug    string `json:"slug"`
+		Version string `json:"version"`
+		Status  string `json:"status"`
+	}{
+		Slug:    c.Slug,
+		Status:  c.Status(),
+		Version: c.Version,
+	})
+}
+
+// Status ...
+func (c *Command) Status() string {
+	if c.Cmd.ProcessState == nil {
+		return c.status
+	}
+
+	ps := c.Cmd.ProcessState
+
+	if ps.Exited() {
+		return statusError
+	}
+
+	if ps.Success() {
+		return statusDone
+	}
+
+	return c.status
 }
 
 // CloseLog safely close the command's logger.
@@ -31,6 +79,7 @@ func (c *Command) Stop() error {
 	if c.Log != nil {
 		defer c.CloseLog()
 	}
+	c.status = statusStopped
 	return c.Cmd.Process.Kill()
 }
 
@@ -74,6 +123,8 @@ func (c *Command) Start() error {
 		c.CloseLog()
 		return err
 	}
+
+	c.status = statusRunning
 
 	return nil
 }
@@ -119,9 +170,11 @@ func (c *Commands) Stop() error {
 }
 
 // NewCommand returns an initalized command pointer.
-func NewCommand(log io.WriteCloser, name string, args ...string) *Command {
+func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *Command {
 	return &Command{
-		Log: log,
-		Cmd: exec.Command(name, args...),
+		Log:    log,
+		Cmd:    exec.Command(name, args...),
+		Slug:   slug,
+		status: statusIdle,
 	}
 }

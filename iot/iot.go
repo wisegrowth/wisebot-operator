@@ -9,10 +9,22 @@ protocol.
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
+	"os"
+	"sync"
 	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
+
+// SetDebug sets MQTT.DEBUG loggin
+func SetDebug(debug bool) {
+	if debug {
+		MQTT.DEBUG = log.New(os.Stdout, "[MQTT-DEBUG] ", 0)
+	} else {
+		MQTT.DEBUG = nil
+	}
+}
 
 // Client is a wrapper on top of `MQTT.Client` that
 // makes connecting to aws iot service easier.
@@ -28,6 +40,9 @@ type Client struct {
 	qos byte
 
 	clientOptions *MQTT.ClientOptions
+	onConnect     func(MQTT.Client)
+
+	sync.RWMutex
 	MQTT.Client
 }
 
@@ -37,6 +52,9 @@ type Client struct {
 // This method takes the client's host, port and path and generates
 // the broker url where to connect.
 func (c *Client) Connect() error {
+	c.Lock()
+	defer c.Unlock()
+
 	if c.Client != nil {
 		return nil
 	}
@@ -45,6 +63,8 @@ func (c *Client) Connect() error {
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
+	log.Println("[MQTT] Connected")
 
 	c.Client = mqttClient
 
@@ -55,6 +75,9 @@ func (c *Client) Connect() error {
 // the function call to MQTT.Client.Subscribe in order
 // to subscribe to  an specific topic and MQTT.MessageHandler.
 func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
+	c.RLock()
+	defer c.RUnlock()
+
 	if token := c.Client.Subscribe(topic, c.qos, onMessage); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -92,9 +115,11 @@ func NewClient(configs ...Config) (*Client, error) {
 	client.clientOptions = &MQTT.ClientOptions{
 		ClientID:             client.id,
 		CleanSession:         true,
+		AutoReconnect:        true,
 		MaxReconnectInterval: 1 * time.Second,
 		KeepAlive:            30 * time.Second,
 		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
+		OnConnect:            client.onConnect,
 	}
 
 	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
@@ -148,5 +173,14 @@ func SetPath(path string) Config {
 func SetQoS(qos int) Config {
 	return func(c *Client) {
 		c.qos = byte(qos)
+	}
+}
+
+// SetOnConnect ...
+func SetOnConnect(onConnect func(*Client)) Config {
+	return func(c *Client) {
+		c.onConnect = func(client MQTT.Client) {
+			onConnect(c)
+		}
 	}
 }
