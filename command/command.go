@@ -93,36 +93,38 @@ func (c *Command) Wait() error {
 // output to the log file. If at any point there is an error
 // it also closes the file if exists.
 func (c *Command) Start() error {
-	out, err := c.Cmd.StdoutPipe()
-	if err != nil {
-		c.CloseLog()
-		return err
-	}
-
-	go func() {
-		if c.Log == nil {
-			return
+	if c.Log == os.Stdout || c.Log == nil {
+		c.Cmd.Stdout = c.Log
+	} else {
+		out, err := c.Cmd.StdoutPipe()
+		if err != nil {
+			c.CloseLog()
+			return err
 		}
 
-		for {
-			r := bufio.NewReader(out)
-			l, _, err := r.ReadLine()
-			if err != nil {
-				if err != io.EOF {
-					c.CloseLog()
-					panic(err)
+		go func() {
+			for {
+				r := bufio.NewReader(out)
+				l, _, err := r.ReadLine()
+				if err != nil {
+					if err != io.EOF {
+						c.CloseLog()
+						panic(err)
+					}
 				}
-			}
 
-			c.Log.Write(l)
-			c.Log.Write([]byte("\n"))
-		}
-	}()
+				c.Log.Write(l)
+				c.Log.Write([]byte("\n"))
+			}
+		}()
+	}
 
 	if err := c.Cmd.Start(); err != nil {
 		c.CloseLog()
 		return err
 	}
+
+	go func() { c.Cmd.Wait() }()
 
 	c.status = statusRunning
 
