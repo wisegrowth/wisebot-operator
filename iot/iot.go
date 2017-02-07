@@ -9,6 +9,7 @@ protocol.
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -22,7 +23,7 @@ func SetDebug(debug bool) {
 	if debug {
 		MQTT.DEBUG = log.New(os.Stdout, "[MQTT-DEBUG] ", 0)
 	} else {
-		MQTT.DEBUG = nil
+		MQTT.DEBUG = log.New(ioutil.Discard, "", 0)
 	}
 }
 
