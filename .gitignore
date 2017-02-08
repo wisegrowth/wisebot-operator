@@ -1,4 +1,4 @@
 bin/
 .DS_Store
 tls/
-cmd/play/
+cmd/play/*.go
