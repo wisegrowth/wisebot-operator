@@ -9,10 +9,23 @@ protocol.
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
 	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
+
+// SetDebug sets MQTT.DEBUG loggin
+func SetDebug(debug bool) {
+	if debug {
+		MQTT.DEBUG = log.New(os.Stdout, "[MQTT-DEBUG] ", 0)
+	} else {
+		MQTT.DEBUG = log.New(ioutil.Discard, "", 0)
+	}
+}
 
 // Client is a wrapper on top of `MQTT.Client` that
 // makes connecting to aws iot service easier.
@@ -28,8 +41,14 @@ type Client struct {
 	qos byte
 
 	clientOptions *MQTT.ClientOptions
+
+	sync.RWMutex
 	MQTT.Client
+
+	subscriptions subscriptionsStore
 }
+
+type subscriptionsStore map[string]MQTT.MessageHandler
 
 // Connect creates a new mqtt client and uses the ClientOptions
 // generated in the NewClient function to connect with
@@ -37,6 +56,9 @@ type Client struct {
 // This method takes the client's host, port and path and generates
 // the broker url where to connect.
 func (c *Client) Connect() error {
+	c.Lock()
+	defer c.Unlock()
+
 	if c.Client != nil {
 		return nil
 	}
@@ -45,6 +67,8 @@ func (c *Client) Connect() error {
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
+	log.Println("[MQTT] Connected")
 
 	c.Client = mqttClient
 
@@ -55,9 +79,15 @@ func (c *Client) Connect() error {
 // the function call to MQTT.Client.Subscribe in order
 // to subscribe to  an specific topic and MQTT.MessageHandler.
 func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
+	c.RLock()
+	defer c.RUnlock()
+
 	if token := c.Client.Subscribe(topic, c.qos, onMessage); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
+	// TODO(sebastianvera): Maybe handle topic replacement?
+	c.subscriptions[topic] = onMessage
 
 	return nil
 }
@@ -75,9 +105,10 @@ type Config func(*Client)
 // - path: /mqtt
 func NewClient(configs ...Config) (*Client, error) {
 	client := &Client{
-		port: 8883,
-		qos:  byte(1),
-		path: "/mqtt",
+		port:          8883,
+		qos:           byte(1),
+		path:          "/mqtt",
+		subscriptions: make(subscriptionsStore),
 	}
 
 	for _, config := range configs {
@@ -92,14 +123,24 @@ func NewClient(configs ...Config) (*Client, error) {
 	client.clientOptions = &MQTT.ClientOptions{
 		ClientID:             client.id,
 		CleanSession:         true,
+		AutoReconnect:        true,
 		MaxReconnectInterval: 1 * time.Second,
 		KeepAlive:            30 * time.Second,
 		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
+		OnConnect:            client.onConnect(),
 	}
 
 	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
 
 	return client, nil
+}
+
+func (c *Client) onConnect() MQTT.OnConnectHandler {
+	return func(client MQTT.Client) {
+		for topic, handler := range c.subscriptions {
+			c.Subscribe(topic, handler)
+		}
+	}
 }
 
 // SetCert sets the client ssl certificate.

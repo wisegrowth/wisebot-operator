@@ -2,9 +2,20 @@ package command
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
+)
+
+const (
+	statusIdle           = "idle"
+	statusRunning        = "running"
+	statusError          = "error"
+	statusUpdateStarted  = "update:started"
+	statusUpdateFinished = "update:finished"
+	statusDone           = "done"
+	statusStopped        = "stopped"
 )
 
 // Command represents a os level command, which can also
@@ -12,6 +23,44 @@ import (
 type Command struct {
 	Log io.WriteCloser
 	Cmd *exec.Cmd
+
+	Slug    string
+	Version string
+
+	status string
+}
+
+// MarshalJSON implements the json interface
+func (c *Command) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Slug    string `json:"slug"`
+		Version string `json:"version"`
+		Status  string `json:"status"`
+	}{
+		Slug:    c.Slug,
+		Status:  c.Status(),
+		Version: c.Version,
+	})
+}
+
+// Status check the command's process state and returns
+// a verbose status.
+func (c *Command) Status() string {
+	if c.Cmd.ProcessState == nil {
+		return c.status
+	}
+
+	ps := c.Cmd.ProcessState
+
+	if ps.Exited() {
+		return statusError
+	}
+
+	if ps.Success() {
+		return statusDone
+	}
+
+	return c.status
 }
 
 // CloseLog safely close the command's logger.
@@ -31,6 +80,7 @@ func (c *Command) Stop() error {
 	if c.Log != nil {
 		defer c.CloseLog()
 	}
+	c.status = statusStopped
 	return c.Cmd.Process.Kill()
 }
 
@@ -44,36 +94,40 @@ func (c *Command) Wait() error {
 // output to the log file. If at any point there is an error
 // it also closes the file if exists.
 func (c *Command) Start() error {
-	out, err := c.Cmd.StdoutPipe()
-	if err != nil {
-		c.CloseLog()
-		return err
-	}
-
-	go func() {
-		if c.Log == nil {
-			return
+	if c.Log == os.Stdout || c.Log == nil {
+		c.Cmd.Stdout = c.Log
+	} else {
+		out, err := c.Cmd.StdoutPipe()
+		if err != nil {
+			c.CloseLog()
+			return err
 		}
 
-		for {
-			r := bufio.NewReader(out)
-			l, _, err := r.ReadLine()
-			if err != nil {
-				if err != io.EOF {
-					c.CloseLog()
-					panic(err)
+		go func() {
+			for {
+				r := bufio.NewReader(out)
+				l, _, err := r.ReadLine()
+				if err != nil {
+					if err != io.EOF {
+						c.CloseLog()
+						panic(err)
+					}
 				}
-			}
 
-			c.Log.Write(l)
-			c.Log.Write([]byte("\n"))
-		}
-	}()
+				c.Log.Write(l)
+				c.Log.Write([]byte("\n"))
+			}
+		}()
+	}
 
 	if err := c.Cmd.Start(); err != nil {
 		c.CloseLog()
 		return err
 	}
+
+	go func() { c.Cmd.Wait() }()
+
+	c.status = statusRunning
 
 	return nil
 }
@@ -119,9 +173,11 @@ func (c *Commands) Stop() error {
 }
 
 // NewCommand returns an initalized command pointer.
-func NewCommand(log io.WriteCloser, name string, args ...string) *Command {
+func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *Command {
 	return &Command{
-		Log: log,
-		Cmd: exec.Command(name, args...),
+		Log:    log,
+		Cmd:    exec.Command(name, args...),
+		Slug:   slug,
+		status: statusIdle,
 	}
 }
