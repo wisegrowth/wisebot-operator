@@ -55,12 +55,12 @@ func (c *Command) Status() string {
 
 	ps := c.Cmd.ProcessState
 
-	if ps.Exited() {
-		return statusError
-	}
-
 	if ps.Success() {
 		return statusDone
+	}
+
+	if ps.Exited() {
+		return statusError
 	}
 
 	return c.status
