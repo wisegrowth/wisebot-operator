@@ -21,8 +21,8 @@ const (
 // Command represents a os level command, which can also
 // receive a logger file in order to dump the output to it.
 type Command struct {
-	Log io.WriteCloser `json:"-"`
-	Cmd *exec.Cmd      `json:"-"`
+	Log io.WriteCloser
+	Cmd *exec.Cmd
 
 	Slug    string
 	Version string
