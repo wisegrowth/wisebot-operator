@@ -10,20 +10,26 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"log"
+	stdlog "log"
 	"os"
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+)
+
+const (
+	secureProtocol = "tcps"
 )
 
 // SetDebug sets MQTT.DEBUG loggin
 func SetDebug(debug bool) {
 	if debug {
-		MQTT.DEBUG = log.New(os.Stdout, "[MQTT-DEBUG] ", 0)
+		MQTT.DEBUG = stdlog.New(os.Stdout, "[MQTT-DEBUG] ", 0)
 	} else {
-		MQTT.DEBUG = log.New(ioutil.Discard, "", 0)
+		MQTT.DEBUG = stdlog.New(ioutil.Discard, "", 0)
 	}
 }
 
@@ -65,7 +71,7 @@ func (c *Client) Connect() error {
 		return token.Error()
 	}
 
-	log.Println("[MQTT] Connected")
+	c.logger().Info("MQTT Connected")
 
 	c.Lock()
 	c.Client = mqttClient
@@ -133,12 +139,21 @@ func NewClient(configs ...Config) (*Client, error) {
 		OnConnect:            client.onConnect(),
 	}
 
-	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
+	client.clientOptions.AddBroker(client.brokerURL(secureProtocol))
 
 	return client, nil
 }
 
+func (c *Client) brokerURL(protocol string) string {
+	return fmt.Sprintf("%s://%s:%d%s", protocol, c.host, c.port, c.path)
+}
+
+func (c *Client) logger() *log.Entry {
+	return log.WithField("broker", c.brokerURL(secureProtocol))
+}
+
 func (c *Client) onConnect() MQTT.OnConnectHandler {
+	c.logger().Info("Running MQTT.OnConnectHandler")
 	return func(client MQTT.Client) {
 		for topic, handler := range c.subscriptions {
 			c.Subscribe(topic, handler)
