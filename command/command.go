@@ -43,7 +43,8 @@ func (c *Command) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Status ...
+// Status check the command's process state and returns
+// a verbose status.
 func (c *Command) Status() string {
 	if c.Cmd.ProcessState == nil {
 		return c.status
