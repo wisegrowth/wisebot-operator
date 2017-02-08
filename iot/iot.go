@@ -42,10 +42,10 @@ type Client struct {
 
 	clientOptions *MQTT.ClientOptions
 
+	subscriptions subscriptionsStore
+
 	sync.RWMutex
 	MQTT.Client
-
-	subscriptions subscriptionsStore
 }
 
 type subscriptionsStore map[string]MQTT.MessageHandler
@@ -56,9 +56,6 @@ type subscriptionsStore map[string]MQTT.MessageHandler
 // This method takes the client's host, port and path and generates
 // the broker url where to connect.
 func (c *Client) Connect() error {
-	c.Lock()
-	defer c.Unlock()
-
 	if c.Client != nil {
 		return nil
 	}
@@ -70,7 +67,9 @@ func (c *Client) Connect() error {
 
 	log.Println("[MQTT] Connected")
 
+	c.Lock()
 	c.Client = mqttClient
+	c.Unlock()
 
 	return nil
 }
@@ -84,6 +83,10 @@ func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
 
 	if token := c.Client.Subscribe(topic, c.qos, onMessage); token.Wait() && token.Error() != nil {
 		return token.Error()
+	}
+
+	if _, ok := c.subscriptions[topic]; ok {
+		return fmt.Errorf("the topic %q is already subscribed", topic)
 	}
 
 	// TODO(sebastianvera): Maybe handle topic replacement?
