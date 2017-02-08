@@ -3,6 +3,7 @@ package command
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -28,6 +29,8 @@ type Command struct {
 	Version string
 
 	status string
+
+	Update func() error
 }
 
 // MarshalJSON implements the json interface
@@ -81,6 +84,11 @@ func (c *Command) Stop() error {
 		defer c.CloseLog()
 	}
 	c.status = statusStopped
+
+	if c.Cmd.Process == nil {
+		return nil
+	}
+
 	return c.Cmd.Process.Kill()
 }
 
@@ -141,11 +149,24 @@ func (c *Command) Success() bool {
 // Commands represents a set of commands.
 // It has convinient methods to run and stop all
 // commands.
-type Commands []*Command
+type Commands map[string]*Command
+
+// Update search the given command in the map and runs its
+// Update function. If the command is not found, an error is
+// returned.
+func (c *Commands) Update(cmdSlug string) error {
+	cmd, ok := (*c)[cmdSlug]
+
+	if !ok {
+		return fmt.Errorf("commands: command with slug %q not found", cmdSlug)
+	}
+
+	return cmd.Update()
+}
 
 // Add adds the received command into the commands list
 func (c *Commands) Add(cmd *Command) {
-	*c = append(*c, cmd)
+	(*c)[cmd.Slug] = cmd
 }
 
 // Start starts all the commands inside the command list by
@@ -179,5 +200,8 @@ func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *C
 		Cmd:    exec.Command(name, args...),
 		Slug:   slug,
 		status: statusIdle,
+		Update: noopUpdate,
 	}
 }
+
+func noopUpdate() error { return nil }
