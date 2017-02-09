@@ -36,9 +36,8 @@ func SetDebug(debug bool) {
 // Client is a wrapper on top of `MQTT.Client` that
 // makes connecting to aws iot service easier.
 type Client struct {
-	cert string
-	key  string
-	id   string
+	id          string
+	certificate tls.Certificate
 
 	host string
 	port uint
@@ -124,18 +123,13 @@ func NewClient(configs ...Config) (*Client, error) {
 		config(client)
 	}
 
-	cer, err := tls.LoadX509KeyPair(client.cert, client.key)
-	if err != nil {
-		return nil, err
-	}
-
 	client.clientOptions = &MQTT.ClientOptions{
 		ClientID:             client.id,
 		CleanSession:         true,
 		AutoReconnect:        true,
 		MaxReconnectInterval: 1 * time.Second,
 		KeepAlive:            30 * time.Second,
-		TLSConfig:            tls.Config{Certificates: []tls.Certificate{cer}},
+		TLSConfig:            tls.Config{Certificates: []tls.Certificate{client.certificate}},
 		OnConnect:            client.onConnect(),
 	}
 
@@ -161,17 +155,10 @@ func (c *Client) onConnect() MQTT.OnConnectHandler {
 	}
 }
 
-// SetCert sets the client ssl certificate.
-func SetCert(cert string) Config {
+// SetCertificate sets the client tls certificate.
+func SetCertificate(cert tls.Certificate) Config {
 	return func(c *Client) {
-		c.cert = cert
-	}
-}
-
-// SetKey sets the client ssl private key.
-func SetKey(key string) Config {
-	return func(c *Client) {
-		c.key = key
+		c.certificate = cert
 	}
 }
 
