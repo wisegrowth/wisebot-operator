@@ -89,7 +89,8 @@ func main() {
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler))
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler))
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/update", updateCommandMQTTHandler))
+
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler))
 
 	quit := make(chan struct{})
 	c := make(chan os.Signal, 1)
