@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -94,6 +95,13 @@ func (c *Command) Stop() error {
 
 	c.logger().Info("Killing process")
 	if c.Cmd.Process == nil {
+		return nil
+	}
+
+	// the ProcessState only exists if either the process exited,
+	// or we called Run or Wait functions.
+	ps := c.Cmd.ProcessState
+	if ps != nil && ps.Exited() {
 		return nil
 	}
 
@@ -214,13 +222,20 @@ func (c *Commands) Stop() error {
 
 // NewCommand returns an initalized command pointer.
 func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *Command {
-	return &Command{
+	cmd := &Command{
 		Log:    log,
 		Cmd:    exec.Command(name, args...),
 		Slug:   slug,
 		status: statusIdle,
 		Update: noopUpdate,
 	}
+
+	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	return cmd
 }
 
 func noopUpdate() error { return nil }
