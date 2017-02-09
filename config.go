@@ -10,7 +10,7 @@ type config struct {
 	WisebotID    string `json:"id"`
 	Certificates struct {
 		PrivateKey  []byte `json:"privateKey"`
-		Certificate []byte `json:"ceritificate"`
+		Certificate []byte `json:"certificate"`
 	} `json:"keys"`
 }
 
