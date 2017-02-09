@@ -1,7 +1,6 @@
 bin/
 .DS_Store
 tls/
-cmd/play/*.go
 *.js
 wisebot/
 wisebots-api/
