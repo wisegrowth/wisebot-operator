@@ -196,6 +196,17 @@ func (c *Commands) Add(cmd *Command) {
 	(*c)[cmd.Slug] = cmd
 }
 
+// StartCommand starts a specific command inside the command list.
+// If the command is not found in the list, it returns an error.
+func (c *Commands) StartCommand(slug string) error {
+	cmd, ok := (*c)[slug]
+	if !ok {
+		return fmt.Errorf("command: command %q not found for starting", slug)
+	}
+
+	return cmd.Start()
+}
+
 // Start starts all the commands inside the command list by
 // looping and calling each command Start function.
 func (c *Commands) Start() error {
@@ -206,6 +217,17 @@ func (c *Commands) Start() error {
 	}
 
 	return nil
+}
+
+// StopCommand stops a specific command inside the command list.
+// If the command is not found in the list, it returns an error.
+func (c *Commands) StopCommand(slug string) error {
+	cmd, ok := (*c)[slug]
+	if !ok {
+		return fmt.Errorf("command: command %q not found for stopping", slug)
+	}
+
+	return cmd.Stop()
 }
 
 // Stop stops all the commands inside the command list by
