@@ -5,3 +5,4 @@ cmd/play/*.go
 *.js
 wisebot/
 wisebots-api/
+config.json
