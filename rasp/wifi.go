@@ -109,6 +109,34 @@ func SetupWifi(n *Network) error {
 	return waitForNetwork()
 }
 
+// IsConnected executes a ping command in order to check
+// wether the device is connected to the network.
+func IsConnected() (bool, error) {
+	ping := command.NewCommand(nil, "ping", "-w", "1", "8.8.8.8")
+	timeout := time.NewTimer(15 * time.Second)
+
+	select {
+	case <-timeout.C:
+		return false, errors.New("Could not connect to the wifi")
+	default:
+		if err := ping.Start(); err != nil {
+			return false, err
+		}
+		if err := ping.Wait(); err != nil {
+			// Ignore exit errors
+			if _, ok := (err).(*exec.ExitError); !ok {
+				return false, err
+			}
+		}
+
+		if ping.Success() {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // waitForNetwork just perform a ping command to google's DNS server
 // to check if the network is up or down.
 // The command will execute for 3 minutes and it sleeps 4 seconds before

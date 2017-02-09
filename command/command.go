@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -55,12 +57,12 @@ func (c *Command) Status() string {
 
 	ps := c.Cmd.ProcessState
 
-	if ps.Exited() {
-		return statusError
-	}
-
 	if ps.Success() {
 		return statusDone
+	}
+
+	if ps.Exited() {
+		return statusError
 	}
 
 	return c.status
@@ -85,6 +87,7 @@ func (c *Command) Stop() error {
 	}
 	c.status = statusStopped
 
+	c.logger().Info("Killing process")
 	if c.Cmd.Process == nil {
 		return nil
 	}
@@ -128,6 +131,7 @@ func (c *Command) Start() error {
 		}()
 	}
 
+	c.logger().Info("Starting")
 	if err := c.Cmd.Start(); err != nil {
 		c.CloseLog()
 		return err
@@ -138,6 +142,10 @@ func (c *Command) Start() error {
 	c.status = statusRunning
 
 	return nil
+}
+
+func (c *Command) logger() *log.Entry {
+	return log.WithField("command", c.Slug)
 }
 
 // Success just proxies the function call to the
@@ -161,6 +169,7 @@ func (c *Commands) Update(cmdSlug string) error {
 		return fmt.Errorf("commands: command with slug %q not found", cmdSlug)
 	}
 
+	cmd.logger().Info("Running update")
 	return cmd.Update()
 }
 

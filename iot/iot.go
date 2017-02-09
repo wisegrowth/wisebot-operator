@@ -10,20 +10,26 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"log"
+	stdlog "log"
 	"os"
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+)
+
+const (
+	secureProtocol = "tcps"
 )
 
 // SetDebug sets MQTT.DEBUG loggin
 func SetDebug(debug bool) {
 	if debug {
-		MQTT.DEBUG = log.New(os.Stdout, "[MQTT-DEBUG] ", 0)
+		MQTT.DEBUG = stdlog.New(os.Stdout, "[MQTT-DEBUG] ", 0)
 	} else {
-		MQTT.DEBUG = log.New(ioutil.Discard, "", 0)
+		MQTT.DEBUG = stdlog.New(ioutil.Discard, "", 0)
 	}
 }
 
@@ -42,10 +48,10 @@ type Client struct {
 
 	clientOptions *MQTT.ClientOptions
 
+	subscriptions subscriptionsStore
+
 	sync.RWMutex
 	MQTT.Client
-
-	subscriptions subscriptionsStore
 }
 
 type subscriptionsStore map[string]MQTT.MessageHandler
@@ -56,9 +62,6 @@ type subscriptionsStore map[string]MQTT.MessageHandler
 // This method takes the client's host, port and path and generates
 // the broker url where to connect.
 func (c *Client) Connect() error {
-	c.Lock()
-	defer c.Unlock()
-
 	if c.Client != nil {
 		return nil
 	}
@@ -68,9 +71,11 @@ func (c *Client) Connect() error {
 		return token.Error()
 	}
 
-	log.Println("[MQTT] Connected")
+	c.logger().Info("MQTT Connected")
 
+	c.Lock()
 	c.Client = mqttClient
+	c.Unlock()
 
 	return nil
 }
@@ -84,6 +89,10 @@ func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
 
 	if token := c.Client.Subscribe(topic, c.qos, onMessage); token.Wait() && token.Error() != nil {
 		return token.Error()
+	}
+
+	if _, ok := c.subscriptions[topic]; ok {
+		return fmt.Errorf("the topic %q is already subscribed", topic)
 	}
 
 	// TODO(sebastianvera): Maybe handle topic replacement?
@@ -130,12 +139,21 @@ func NewClient(configs ...Config) (*Client, error) {
 		OnConnect:            client.onConnect(),
 	}
 
-	client.clientOptions.AddBroker(fmt.Sprintf("tcps://%s:%d%s", client.host, client.port, client.path))
+	client.clientOptions.AddBroker(client.brokerURL(secureProtocol))
 
 	return client, nil
 }
 
+func (c *Client) brokerURL(protocol string) string {
+	return fmt.Sprintf("%s://%s:%d%s", protocol, c.host, c.port, c.path)
+}
+
+func (c *Client) logger() *log.Entry {
+	return log.WithField("broker", c.brokerURL(secureProtocol))
+}
+
 func (c *Client) onConnect() MQTT.OnConnectHandler {
+	c.logger().Info("Running MQTT.OnConnectHandler")
 	return func(client MQTT.Client) {
 		for topic, handler := range c.subscriptions {
 			c.Subscribe(topic, handler)
