@@ -1,75 +1,95 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/operator/command"
 	"github.com/WiseGrowth/operator/git"
 	"github.com/WiseGrowth/operator/iot"
-	MQTT "github.com/eclipse/paho.mqtt.golang"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 var (
 	commands command.Commands
 )
 
+const (
+	// wisebotCoreCommandSlug = "wisebot-core"
+	// wisebotCoreRepoPath    = "~/wisebot-core"
+	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
+	wisebotCoreCommandSlug = "wisebots-api"
+	wisebotCoreRepoPath    = "~/wisebots-api"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebots-api.git"
+
+	bleCommandSlug = "wisebot-ble"
+	bleRepoPath    = "~/wisebot-ble"
+	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+
+	wisebotConfigPath = "./config.json" // TODO: use real path
+
+	iotHost = "a55lp0huv9vtb.iot.us-west-2.amazonaws.com"
+)
+
+var (
+	wisebotConfigExpandedPath   string
+	wisebotCoreRepoExpandedPath string
+	bleRepoExpandedPath         string
+)
+
 func init() {
+	var err error
 	log.SetLevel(log.DebugLevel)
+
+	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
+	check(err)
+
+	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
+	check(err)
+
+	log.Info(wisebotConfigExpandedPath, wisebotCoreRepoExpandedPath)
 
 	commands = make(command.Commands)
 	commands.Add(
-		command.NewCommand(nil, "test-cmd", "echo", "hello world"),
+		command.NewCommand(nil, wisebotCoreCommandSlug, "node", wisebotCoreRepoExpandedPath+"/build/app/index.js"),
 	)
-}
-
-func healthz(client MQTT.Client, message MQTT.Message) {
-	topic := message.Topic()
-
-	logger := log.WithField("topic", topic)
-	logger.Info("Received message", message.Payload())
-
-	bytes, _ := json.Marshal(&struct {
-		Data command.Commands `json:"data"`
-	}{commands})
-
-	token := client.Publish(topic+":response", byte(1), false, bytes)
-	if token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
+	// TODO: add ble command
 }
 
 func main() {
-	r := git.NewRepo(
-		"wisebots-api",
-		"git@github.com:wisegrowth/wisebots-api.git",
+	wisebotCoreRepo := git.NewRepo(
+		wisebotCoreRepoExpandedPath,
+		wisebotCoreRepoRemote,
 	)
 
-	r.AddPostReceiveHooks(
-		r.NpmInstall(),
-		r.NpmPrune(),
+	wisebotCoreRepo.AddPostReceiveHooks(
+		wisebotCoreRepo.NpmInstall(),
+		wisebotCoreRepo.NpmPrune(),
 	)
 
-	wisebotConfig, err := loadConfig("./config.json") // TODO: use real path
+	check(wisebotCoreRepo.Bootstrap())
+
+	wisebotConfig, err := loadConfig(wisebotConfigExpandedPath)
 	check(err)
 	cert, err := wisebotConfig.getTLSCertificate()
 	check(err)
 
 	client, err := iot.NewClient(
-		iot.SetHost("a55lp0huv9vtb.iot.us-west-2.amazonaws.com"),
+		iot.SetHost(iotHost),
 		iot.SetCertificate(*cert),
 	)
 
 	check(err)
+
+	check(commands.Start())
 	check(client.Connect())
 
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthz))
-
-	check(commands.Start())
-
-	check(r.Bootstrap())
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommand))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommand))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/update", updateCommand))
 
 	quit := make(chan struct{})
 	c := make(chan os.Signal, 1)
@@ -89,6 +109,7 @@ func main() {
 
 func check(err error) {
 	if err != nil {
+		debug.PrintStack()
 		log.Fatal(err)
 		os.Exit(1)
 	}
