@@ -9,19 +9,19 @@ import (
 type config struct {
 	WisebotID    string `json:"id"`
 	Certificates struct {
-		PrivateKey  []byte `json:"privateKey"`
-		Certificate []byte `json:"certificate"`
+		PrivateKey  string `json:"privateKey"`
+		Certificate string `json:"certificate"`
 	} `json:"keys"`
 }
 
 func loadConfig(path string) (*config, error) {
-	bytes, err := ioutil.ReadFile(path)
+	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	c := new(config)
-	if err := json.Unmarshal(bytes, c); err != nil {
+	if err := json.Unmarshal(fileBytes, c); err != nil {
 		return nil, err
 	}
 
@@ -29,7 +29,7 @@ func loadConfig(path string) (*config, error) {
 }
 
 func (c *config) getTLSCertificate() (*tls.Certificate, error) {
-	cer, err := tls.X509KeyPair(c.Certificates.Certificate, c.Certificates.PrivateKey)
+	cer, err := tls.X509KeyPair([]byte(c.Certificates.Certificate), []byte(c.Certificates.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
