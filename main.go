@@ -13,13 +13,11 @@ import (
 )
 
 var (
-	commands  command.Commands
-	wisebotID string
+	commands command.Commands
 )
 
 func init() {
 	log.SetLevel(log.DebugLevel)
-	wisebotID = "wisebot-id" // TODO: get id from config
 
 	commands = make(command.Commands)
 	commands.Add(
@@ -54,15 +52,19 @@ func main() {
 		r.NpmPrune(),
 	)
 
+	wisebotConfig, err := loadConfig("./config.json") // TODO: use real path
+	check(err)
+	cert, err := wisebotConfig.getTLSCertificate()
+	check(err)
+
 	client, err := iot.NewClient(
 		iot.SetHost("a55lp0huv9vtb.iot.us-west-2.amazonaws.com"),
-		iot.SetCert("tls/chechitodelboom.cert.pem"),
-		iot.SetKey("tls/chechitodelboom.private.key"),
+		iot.SetCertificate(*cert),
 	)
 	check(err)
 	check(client.Connect())
 
-	check(client.Subscribe("/operator/"+wisebotID+"/healthz", healthz))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthz))
 
 	check(commands.Start())
 
