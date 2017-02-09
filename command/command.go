@@ -17,7 +17,7 @@ const (
 	statusError          = "error"
 	statusUpdateStarted  = "update:started"
 	statusUpdateFinished = "update:finished"
-	statusDone           = "done"
+	statusDone           = "succeed"
 	statusStopped        = "stopped"
 )
 
@@ -85,6 +85,11 @@ func (c *Command) Stop() error {
 	if c.Log != nil {
 		defer c.CloseLog()
 	}
+
+	if c.status == statusStopped {
+		return fmt.Errorf("commands: command %q is already stopped", c.Slug)
+	}
+
 	c.status = statusStopped
 
 	c.logger().Info("Killing process")
@@ -92,7 +97,12 @@ func (c *Command) Stop() error {
 		return nil
 	}
 
-	return c.Cmd.Process.Kill()
+	if err := c.Cmd.Process.Signal(os.Interrupt); err != nil {
+		return err
+	}
+
+	_, err := c.Cmd.Process.Wait()
+	return err
 }
 
 // Wait only proxies the function call to the
