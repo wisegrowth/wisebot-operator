@@ -61,6 +61,7 @@ func main() {
 		iot.SetHost("a55lp0huv9vtb.iot.us-west-2.amazonaws.com"),
 		iot.SetCertificate(*cert),
 	)
+
 	check(err)
 	check(client.Connect())
 
@@ -83,7 +84,7 @@ func main() {
 		quit <- struct{}{}
 	}()
 	<-quit
-	log.Debug("Done")
+	log.Info("Done")
 }
 
 func check(err error) {
