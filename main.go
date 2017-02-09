@@ -86,10 +86,10 @@ func main() {
 	check(commands.Start())
 	check(client.Connect())
 
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthz))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommand))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommand))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/update", updateCommand))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/update", updateCommandMQTTHandler))
 
 	quit := make(chan struct{})
 	c := make(chan os.Signal, 1)

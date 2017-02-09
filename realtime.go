@@ -9,7 +9,7 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
-func healthz(client MQTT.Client, message MQTT.Message) {
+func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
@@ -25,7 +25,7 @@ func healthz(client MQTT.Client, message MQTT.Message) {
 	}
 }
 
-func updateCommand(client MQTT.Client, message MQTT.Message) {
+func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
@@ -49,7 +49,7 @@ func updateCommand(client MQTT.Client, message MQTT.Message) {
 	}
 }
 
-func stopCommand(client MQTT.Client, message MQTT.Message) {
+func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
@@ -73,7 +73,7 @@ func stopCommand(client MQTT.Client, message MQTT.Message) {
 	}
 }
 
-func startCommand(client MQTT.Client, message MQTT.Message) {
+func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
