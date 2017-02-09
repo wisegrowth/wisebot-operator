@@ -29,7 +29,7 @@ type Repo struct {
 type PostReceiveHook func() error
 
 const (
-	originMaster = "origin/master"
+	upstream = "origin/master"
 )
 
 // Update runs a git fetch to the `origin` remote,
@@ -47,7 +47,7 @@ func (r *Repo) Update() error {
 		return err
 	}
 
-	originHeadCmd := exec.Command("git", "rev-parse", "--short", originMaster)
+	originHeadCmd := exec.Command("git", "rev-parse", "--short", upstream)
 	originHeadCmd.Dir = r.Path
 
 	originHead, err := originHeadCmd.Output()
@@ -62,7 +62,7 @@ func (r *Repo) Update() error {
 	}
 	logger.Info("Update found")
 
-	updateCmd := exec.Command("git", "reset", "--hard", originMaster)
+	updateCmd := exec.Command("git", "reset", "--hard", upstream)
 	updateCmd.Dir = r.Path
 
 	logger = logger.WithFields(log.Fields{"new_version": oHead})
@@ -103,10 +103,11 @@ func (r *Repo) runPostReceiveHooks() error {
 func (r *Repo) Bootstrap() error {
 	if _, err := os.Stat(fmt.Sprintf("%s/.git", r.Path)); err != nil {
 		if os.IsNotExist(err) {
-			logger := r.logger()
+			logger := r.logger().WithField("repo", r.Path)
 
 			logger.Info("Clonning...")
 			clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
+			clone.Dir = path.Dir(r.Path)
 
 			if err := clone.Run(); err != nil {
 				return err
@@ -169,6 +170,7 @@ func (r *Repo) NpmInstall() func() error {
 		npmInstall := exec.Command("npm", "install", "--production")
 		npmInstall.Dir = r.Path
 
+		r.logger().Info("Running npm install")
 		return npmInstall.Run()
 	}
 }
@@ -180,6 +182,7 @@ func (r *Repo) NpmPrune() func() error {
 		prune := exec.Command("npm", "prune")
 		prune.Dir = r.Path
 
+		r.logger().Info("Running npm prune")
 		return prune.Run()
 	}
 }
