@@ -14,6 +14,8 @@ import (
 // and remote.
 // This struct has methods to boostrap and update the
 // git repository.
+//
+// This struct also implements the `command.Updater` interface.
 type Repo struct {
 	Path   string
 	Remote string
@@ -29,14 +31,15 @@ type Repo struct {
 type PostReceiveHook func() error
 
 const (
-	originMaster = "origin/master"
+	upstream = "origin/master"
 )
 
 // Update runs a git fetch to the `origin` remote,
 // if the origin/master has a different sha that the
 // current head, it executes a `git reset --hard origin/master`
 // and then runs the repository post receive hooks.
-func (r *Repo) Update() error {
+// The function must return the new head sha if succeed.
+func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	logger := r.logger()
 	logger.Info("Updating...")
 
@@ -44,35 +47,35 @@ func (r *Repo) Update() error {
 	fetch.Dir = r.Path
 
 	if err := fetch.Run(); err != nil {
-		return err
+		return "", err
 	}
 
-	originHeadCmd := exec.Command("git", "rev-parse", "--short", originMaster)
+	originHeadCmd := exec.Command("git", "rev-parse", "--short", upstream)
 	originHeadCmd.Dir = r.Path
 
 	originHead, err := originHeadCmd.Output()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	oHead := sanitizeOutput(originHead)
 	if oHead == r.head {
 		logger.Info("No new updates")
-		return nil
+		return "", nil
 	}
 	logger.Info("Update found")
 
-	updateCmd := exec.Command("git", "reset", "--hard", originMaster)
+	updateCmd := exec.Command("git", "reset", "--hard", upstream)
 	updateCmd.Dir = r.Path
 
 	logger = logger.WithFields(log.Fields{"new_version": oHead})
 	logger.Info("Downloading...")
 	if err := updateCmd.Run(); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := r.updateHead(); err != nil {
-		return err
+		return "", err
 	}
 
 	cleanCmd := exec.Command("git", "clean", "-f", "-d", "-X")
@@ -80,10 +83,19 @@ func (r *Repo) Update() error {
 
 	logger.Info("Cleaning...")
 	if err := cleanCmd.Run(); err != nil {
-		return err
+		return "", err
 	}
 	logger.Info("Update finished")
-	return r.runPostReceiveHooks()
+	if err := r.runPostReceiveHooks(); err != nil {
+		return "", err
+	}
+
+	return r.head, nil
+}
+
+// CurrentHead returns the head sha as a string.
+func (r *Repo) CurrentHead() string {
+	return r.head
 }
 
 func (r *Repo) runPostReceiveHooks() error {
@@ -107,8 +119,13 @@ func (r *Repo) Bootstrap() error {
 
 			logger.Info("Clonning...")
 			clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
+			clone.Dir = path.Dir(r.Path)
 
 			if err := clone.Run(); err != nil {
+				return err
+			}
+
+			if err := r.updateHead(); err != nil {
 				return err
 			}
 
@@ -127,6 +144,7 @@ func (r *Repo) logger() *log.Entry {
 	return log.WithFields(log.Fields{
 		"process": r.name,
 		"version": r.head,
+		"repo":    r.Path,
 	})
 }
 
@@ -169,6 +187,7 @@ func (r *Repo) NpmInstall() func() error {
 		npmInstall := exec.Command("npm", "install", "--production")
 		npmInstall.Dir = r.Path
 
+		r.logger().Info("Running npm install")
 		return npmInstall.Run()
 	}
 }
@@ -180,6 +199,7 @@ func (r *Repo) NpmPrune() func() error {
 		prune := exec.Command("npm", "prune")
 		prune.Dir = r.Path
 
+		r.logger().Info("Running npm prune")
 		return prune.Run()
 	}
 }

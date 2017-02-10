@@ -1,76 +1,118 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/operator/command"
 	"github.com/WiseGrowth/operator/git"
 	"github.com/WiseGrowth/operator/iot"
-	MQTT "github.com/eclipse/paho.mqtt.golang"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 var (
 	commands command.Commands
 )
 
+const (
+	// wisebotCoreCommandSlug = "wisebot-core"
+	// wisebotCoreRepoPath    = "~/wisebot-core"
+	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
+	wisebotCoreCommandSlug = "wisebots-api"
+	wisebotCoreRepoPath    = "~/wisebots-api"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebots-api.git"
+
+	bleCommandSlug = "wisebot-ble"
+	bleRepoPath    = "~/wisebot-ble"
+	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+
+	wisebotConfigPath = "./config.json" // TODO: use real path
+
+	iotHost = "a55lp0huv9vtb.iot.us-west-2.amazonaws.com"
+)
+
+var (
+	wisebotConfigExpandedPath   string
+	wisebotCoreRepoExpandedPath string
+	bleRepoExpandedPath         string
+
+	wisebotCoreRepo *git.Repo
+	wisebotConfig   *config
+
+	healthzPublishableTopic string
+)
+
 func init() {
+	var err error
 	log.SetLevel(log.DebugLevel)
 
-	commands = make(command.Commands)
-	commands.Add(
-		command.NewCommand(nil, "test-cmd", "echo", "hello world"),
-	)
-}
+	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
+	check(err)
 
-func healthz(client MQTT.Client, message MQTT.Message) {
-	topic := message.Topic()
+	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
+	check(err)
 
-	logger := log.WithField("topic", topic)
-	logger.Info("Received message", message.Payload())
+	// ----- Load wisebot config
+	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
+	check(err)
 
-	bytes, _ := json.Marshal(&struct {
-		Data command.Commands `json:"data"`
-	}{commands})
-
-	token := client.Publish(topic+":response", byte(1), false, bytes)
-	if token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
+	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 }
 
 func main() {
-	r := git.NewRepo(
-		"wisebots-api",
-		"git@github.com:wisegrowth/wisebots-api.git",
+	// ----- Initialize git repos
+	wisebotCoreRepo = git.NewRepo(
+		wisebotCoreRepoExpandedPath,
+		wisebotCoreRepoRemote,
 	)
 
-	r.AddPostReceiveHooks(
-		r.NpmInstall(),
-		r.NpmPrune(),
+	wisebotCoreRepo.AddPostReceiveHooks(
+		wisebotCoreRepo.NpmInstall(),
+		wisebotCoreRepo.NpmPrune(),
 	)
 
-	wisebotConfig, err := loadConfig("./config.json") // TODO: use real path
-	check(err)
+	check(wisebotCoreRepo.Bootstrap())
+
+	// ----- Initialize commands
+	wisebotCoreCommand := command.NewCommand(
+		nil,
+		wisebotCoreCommandSlug,
+		wisebotCoreRepo.CurrentHead(),
+		"node",
+		wisebotCoreRepoExpandedPath+"/build/app/index.js",
+	)
+	wisebotCoreCommand.Updater = wisebotCoreRepo
+	// TODO: add ble command
+
+	// Append commands to the global variable
+	commands = make(command.Commands)
+	commands.Add(wisebotCoreCommand)
+
+	// ----- Initialize MQTT connection
 	cert, err := wisebotConfig.getTLSCertificate()
 	check(err)
 
 	client, err := iot.NewClient(
-		iot.SetHost("a55lp0huv9vtb.iot.us-west-2.amazonaws.com"),
+		iot.SetHost(iotHost),
 		iot.SetCertificate(*cert),
 	)
-
 	check(err)
+
+	// ----- Start application
+	check(commands.Start())
 	check(client.Connect())
 
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthz))
+	// ----- Subscribe to MQTT topics
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler))
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler))
 
-	check(commands.Start())
+	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler))
 
-	check(r.Bootstrap())
-
+	// ----- Gracefully shutdown
 	quit := make(chan struct{})
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -81,6 +123,7 @@ func main() {
 
 		commands.Stop()
 
+		// rasp.TurnOffPins()
 		quit <- struct{}{}
 	}()
 	<-quit
@@ -89,6 +132,7 @@ func main() {
 
 func check(err error) {
 	if err != nil {
+		debug.PrintStack()
 		log.Fatal(err)
 		os.Exit(1)
 	}
