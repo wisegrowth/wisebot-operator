@@ -2,7 +2,6 @@ package rasp
 
 import (
 	"errors"
-	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
@@ -31,7 +30,6 @@ func (n *Network) IsWPA() bool {
 func AvailableNetworks() ([]*Network, error) {
 	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
 	if err != nil {
-		fmt.Println("error comando", err)
 		return nil, err
 	}
 
