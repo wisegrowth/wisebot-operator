@@ -67,7 +67,13 @@ func main() {
 
 	check(wisebotCoreRepo.Bootstrap())
 
-	wisebotCoreCommand := command.NewCommand(nil, wisebotCoreCommandSlug, wisebotCoreRepo.CurrentHead(), "node", wisebotCoreRepoExpandedPath+"/build/app/index.js")
+	wisebotCoreCommand := command.NewCommand(
+		nil,
+		wisebotCoreCommandSlug,
+		wisebotCoreRepo.CurrentHead(),
+		"node",
+		wisebotCoreRepoExpandedPath+"/build/app/index.js",
+	)
 	wisebotCoreCommand.Updater = wisebotCoreRepo
 
 	commands = make(command.Commands)
