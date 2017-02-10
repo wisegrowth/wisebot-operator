@@ -74,7 +74,7 @@ func main() {
 		wisebotCoreRepo.NpmPrune(),
 	)
 
-	const update = true
+	const update = false
 	check(wisebotCoreRepo.Bootstrap(update))
 
 	// ----- Initialize commands

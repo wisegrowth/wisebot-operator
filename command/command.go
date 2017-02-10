@@ -71,17 +71,18 @@ func (c *Command) Update() (updated bool, err error) {
 		return false, fmt.Errorf("command: no updater for %q command", c.Slug)
 	}
 
+	oldVersion := c.Version
 	newVersion, err := c.Updater.Update()
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
-	c.logger().Debugf("updated: %v - newVersion: %s", updated, newVersion)
-
-	if newVersion != c.Version {
+	if newVersion != oldVersion {
 		c.Version = newVersion
 		updated = true
 	}
+
+	c.logger().Debugf("updated: %v - oldVersion: %q - newVersion: %q", updated, oldVersion, newVersion)
 
 	return updated, nil
 }
@@ -192,8 +193,6 @@ func (c *Command) Start() error {
 		return err
 	}
 
-	go func() { c.Cmd.Wait() }()
-
 	c.status = statusRunning
 
 	return nil
@@ -243,7 +242,9 @@ func (c *Commands) Update(cmdSlug string) error {
 		return err
 	}
 
+	updater := cmd.Updater
 	cmd = NewCommand(cmd.Log, cmd.Slug, cmd.Version, cmd.cmdName, cmd.cmdArgs...)
+	cmd.Updater = updater
 	(*c)[cmdSlug] = cmd
 
 	if err := cmd.Start(); err != nil {
@@ -310,7 +311,6 @@ func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) 
 		Log:     log,
 		Cmd:     exec.Command(name, args...),
 		Slug:    slug,
-		Updater: noopUpdater{},
 		Version: version,
 
 		status:  statusIdle,
@@ -323,9 +323,17 @@ func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) 
 		Pgid:    0,
 	}
 
+	cmd.Updater = &noopUpdater{cmd}
+
 	return cmd
 }
 
-type noopUpdater struct{}
+type noopUpdater struct {
+	*Command
+}
 
-func (nu noopUpdater) Update() (string, error) { return "", nil }
+func (nu *noopUpdater) Update() (string, error) {
+	nu.logger().Warn("Noop Updater Called")
+
+	return nu.Version, nil
+}
