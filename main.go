@@ -37,6 +37,8 @@ var (
 	wisebotConfigExpandedPath   string
 	wisebotCoreRepoExpandedPath string
 	bleRepoExpandedPath         string
+
+	wisebotCoreRepo *git.Repo
 )
 
 func init() {
@@ -49,17 +51,11 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
-	log.Info(wisebotConfigExpandedPath, wisebotCoreRepoExpandedPath)
-
-	commands = make(command.Commands)
-	commands.Add(
-		command.NewCommand(nil, wisebotCoreCommandSlug, "node", wisebotCoreRepoExpandedPath+"/build/app/index.js"),
-	)
 	// TODO: add ble command
 }
 
 func main() {
-	wisebotCoreRepo := git.NewRepo(
+	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
 	)
@@ -70,6 +66,12 @@ func main() {
 	)
 
 	check(wisebotCoreRepo.Bootstrap())
+
+	wisebotCoreCommand := command.NewCommand(nil, wisebotCoreCommandSlug, wisebotCoreRepo.CurrentHead(), "node", wisebotCoreRepoExpandedPath+"/build/app/index.js")
+	wisebotCoreCommand.Updater = wisebotCoreRepo
+
+	commands = make(command.Commands)
+	commands.Add(wisebotCoreCommand)
 
 	wisebotConfig, err := loadConfig(wisebotConfigExpandedPath)
 	check(err)

@@ -14,6 +14,8 @@ import (
 // and remote.
 // This struct has methods to boostrap and update the
 // git repository.
+//
+// This struct also implements the `command.Updater` interface.
 type Repo struct {
 	Path   string
 	Remote string
@@ -36,7 +38,8 @@ const (
 // if the origin/master has a different sha that the
 // current head, it executes a `git reset --hard origin/master`
 // and then runs the repository post receive hooks.
-func (r *Repo) Update() error {
+// The function must return the new head sha if succeed.
+func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	logger := r.logger()
 	logger.Info("Updating...")
 
@@ -44,7 +47,7 @@ func (r *Repo) Update() error {
 	fetch.Dir = r.Path
 
 	if err := fetch.Run(); err != nil {
-		return err
+		return "", err
 	}
 
 	originHeadCmd := exec.Command("git", "rev-parse", "--short", upstream)
@@ -52,13 +55,13 @@ func (r *Repo) Update() error {
 
 	originHead, err := originHeadCmd.Output()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	oHead := sanitizeOutput(originHead)
 	if oHead == r.head {
 		logger.Info("No new updates")
-		return nil
+		return "", nil
 	}
 	logger.Info("Update found")
 
@@ -68,11 +71,11 @@ func (r *Repo) Update() error {
 	logger = logger.WithFields(log.Fields{"new_version": oHead})
 	logger.Info("Downloading...")
 	if err := updateCmd.Run(); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := r.updateHead(); err != nil {
-		return err
+		return "", err
 	}
 
 	cleanCmd := exec.Command("git", "clean", "-f", "-d", "-X")
@@ -80,10 +83,19 @@ func (r *Repo) Update() error {
 
 	logger.Info("Cleaning...")
 	if err := cleanCmd.Run(); err != nil {
-		return err
+		return "", err
 	}
 	logger.Info("Update finished")
-	return r.runPostReceiveHooks()
+	if err := r.runPostReceiveHooks(); err != nil {
+		return "", err
+	}
+
+	return r.head, nil
+}
+
+// CurrentHead returns the head sha as a string.
+func (r *Repo) CurrentHead() string {
+	return r.head
 }
 
 func (r *Repo) runPostReceiveHooks() error {

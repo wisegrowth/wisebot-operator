@@ -13,13 +13,12 @@ import (
 )
 
 const (
-	statusIdle           = "idle"
-	statusRunning        = "running"
-	statusError          = "error"
-	statusUpdateStarted  = "update:started"
-	statusUpdateFinished = "update:finished"
-	statusDone           = "succeed"
-	statusStopped        = "stopped"
+	statusIdle     = "idle"
+	statusRunning  = "running"
+	statusError    = "error"
+	statusUpdating = "updating"
+	statusDone     = "succeed"
+	statusStopped  = "stopped"
 )
 
 // Command represents a os level command, which can also
@@ -33,7 +32,16 @@ type Command struct {
 
 	status string
 
-	Update func() error
+	Updater Updater
+
+	cmdName string
+	cmdArgs []string
+}
+
+// Updater knows how to update the codebase of a specific
+// command codebase.
+type Updater interface {
+	Update() (newVersion string, err error)
 }
 
 // MarshalJSON implements the json interface
@@ -47,6 +55,24 @@ func (c *Command) MarshalJSON() ([]byte, error) {
 		Status:  c.Status(),
 		Version: c.Version,
 	})
+}
+
+// Update uses the updater in order to update the code base
+// and the command version.
+// If no updater is found, it returns an error.
+func (c *Command) Update() error {
+	if c.Updater == nil {
+		return fmt.Errorf("command: no updater for %q command", c.Slug)
+	}
+
+	newVersion, err := c.Updater.Update()
+	if err != nil {
+		return nil
+	}
+
+	c.Version = newVersion
+
+	return nil
 }
 
 // Status check the command's process state and returns
@@ -188,7 +214,25 @@ func (c *Commands) Update(cmdSlug string) error {
 	}
 
 	cmd.logger().Info("Running update")
-	return cmd.Update()
+	cmd.status = statusUpdating
+	err := cmd.Update()
+	if err != nil {
+		cmd.status = statusRunning
+		return err
+	}
+
+	if err := cmd.Stop(); err != nil {
+		return err
+	}
+
+	cmd = NewCommand(cmd.Log, cmd.Slug, cmd.Version, cmd.cmdName, cmd.cmdArgs...)
+	(*c)[cmdSlug] = cmd
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Add adds the received command into the commands list
@@ -243,13 +287,17 @@ func (c *Commands) Stop() error {
 }
 
 // NewCommand returns an initalized command pointer.
-func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *Command {
+func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) *Command {
 	cmd := &Command{
-		Log:    log,
-		Cmd:    exec.Command(name, args...),
-		Slug:   slug,
-		status: statusIdle,
-		Update: noopUpdate,
+		Log:     log,
+		Cmd:     exec.Command(name, args...),
+		Slug:    slug,
+		Updater: noopUpdater{},
+		Version: version,
+
+		status:  statusIdle,
+		cmdName: name,
+		cmdArgs: args,
 	}
 
 	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -260,4 +308,6 @@ func NewCommand(log io.WriteCloser, slug string, name string, args ...string) *C
 	return cmd
 }
 
-func noopUpdate() error { return nil }
+type noopUpdater struct{}
+
+func (nu noopUpdater) Update() (string, error) { return "", nil }
