@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -39,6 +40,9 @@ var (
 	bleRepoExpandedPath         string
 
 	wisebotCoreRepo *git.Repo
+	wisebotConfig   *config
+
+	healthzPublishableTopic string
 )
 
 func init() {
@@ -51,10 +55,15 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
-	// TODO: add ble command
+	// ----- Load wisebot config
+	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
+	check(err)
+
+	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 }
 
 func main() {
+	// ----- Initialize git repos
 	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
@@ -67,6 +76,7 @@ func main() {
 
 	check(wisebotCoreRepo.Bootstrap())
 
+	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
 		nil,
 		wisebotCoreCommandSlug,
@@ -75,12 +85,13 @@ func main() {
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
 	wisebotCoreCommand.Updater = wisebotCoreRepo
+	// TODO: add ble command
 
+	// Append commands to the global variable
 	commands = make(command.Commands)
 	commands.Add(wisebotCoreCommand)
 
-	wisebotConfig, err := loadConfig(wisebotConfigExpandedPath)
-	check(err)
+	// ----- Initialize MQTT connection
 	cert, err := wisebotConfig.getTLSCertificate()
 	check(err)
 
@@ -88,18 +99,20 @@ func main() {
 		iot.SetHost(iotHost),
 		iot.SetCertificate(*cert),
 	)
-
 	check(err)
 
+	// ----- Start application
 	check(commands.Start())
 	check(client.Connect())
 
+	// ----- Subscribe to MQTT topics
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler))
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler))
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler))
 
 	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler))
 
+	// ----- Gracefully shutdown
 	quit := make(chan struct{})
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -110,6 +123,7 @@ func main() {
 
 		commands.Stop()
 
+		// rasp.TurnOffPins()
 		quit <- struct{}{}
 	}()
 	<-quit

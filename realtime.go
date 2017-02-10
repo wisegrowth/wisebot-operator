@@ -22,7 +22,7 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 	token := client.Publish(topic+":response", byte(1), false, responseBytes)
 	if token.Wait() && token.Error() != nil {
-		panic(token.Error())
+		log.Error(token.Error())
 	}
 }
 
@@ -34,6 +34,19 @@ type updateCommandResponse struct {
 }
 
 func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	defer func() {
+		res := &updateCommandResponse{
+			Data: commands,
+		}
+		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		responseBytes, _ := json.Marshal(res)
+
+		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
+		if token.Wait() && token.Error() != nil {
+			log.Error(token.Error())
+		}
+	}()
+
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
@@ -55,21 +68,22 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		log.Error(err)
 		return
 	}
-
-	res := &updateCommandResponse{
-		Data: commands,
-	}
-	res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
-
-	responseBytes, _ := json.Marshal(res)
-
-	token := client.Publish(topic+":response", byte(1), false, responseBytes)
-	if token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
 }
 
 func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	defer func() {
+		res := &updateCommandResponse{
+			Data: commands,
+		}
+		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		responseBytes, _ := json.Marshal(res)
+
+		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
+		if token.Wait() && token.Error() != nil {
+			log.Error(token.Error())
+		}
+	}()
+
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
@@ -94,6 +108,19 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 }
 
 func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	defer func() {
+		res := &updateCommandResponse{
+			Data: commands,
+		}
+		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		responseBytes, _ := json.Marshal(res)
+
+		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
+		if token.Wait() && token.Error() != nil {
+			log.Error(token.Error())
+		}
+	}()
+
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
