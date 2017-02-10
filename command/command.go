@@ -27,6 +27,8 @@ type Command struct {
 	Log io.WriteCloser
 	Cmd *exec.Cmd
 
+	// stderr *bytes.Buffer // Maybe this will help us debugging when a command fails?
+
 	Slug    string
 	Version string
 
