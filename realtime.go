@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/WiseGrowth/operator/command"
+	"github.com/WiseGrowth/operator/git"
 
 	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
@@ -15,14 +16,21 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	bytes, _ := json.Marshal(&struct {
+	responseBytes, _ := json.Marshal(&struct {
 		Data command.Commands `json:"data"`
 	}{commands})
 
-	token := client.Publish(topic+":response", byte(1), false, bytes)
+	token := client.Publish(topic+":response", byte(1), false, responseBytes)
 	if token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
+}
+
+type updateCommandResponse struct {
+	Data command.Commands `json:"data"`
+	Meta struct {
+		Repos []*git.Repo `json:"repos"`
+	} `json:"meta"`
 }
 
 func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
@@ -46,6 +54,18 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	if err := commands.Update(payload.Data.Process); err != nil {
 		log.Error(err)
 		return
+	}
+
+	res := &updateCommandResponse{
+		Data: commands,
+	}
+	res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+
+	responseBytes, _ := json.Marshal(res)
+
+	token := client.Publish(topic+":response", byte(1), false, responseBytes)
+	if token.Wait() && token.Error() != nil {
+		panic(token.Error())
 	}
 }
 
