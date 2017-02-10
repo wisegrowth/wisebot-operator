@@ -62,19 +62,28 @@ func (c *Command) MarshalJSON() ([]byte, error) {
 // Update uses the updater in order to update the code base
 // and the command version.
 // If no updater is found, it returns an error.
-func (c *Command) Update() error {
+// Update function returns a boolean that indicates
+// if the code was either updated or not. Knowing if
+// the command was updated is important in order to
+// decide if we need to restart it or not.
+func (c *Command) Update() (updated bool, err error) {
 	if c.Updater == nil {
-		return fmt.Errorf("command: no updater for %q command", c.Slug)
+		return false, fmt.Errorf("command: no updater for %q command", c.Slug)
 	}
 
 	newVersion, err := c.Updater.Update()
 	if err != nil {
-		return nil
+		return false, nil
 	}
 
-	c.Version = newVersion
+	c.logger().Debugf("updated: %v - newVersion: %s", updated, newVersion)
 
-	return nil
+	if newVersion != c.Version {
+		c.Version = newVersion
+		updated = true
+	}
+
+	return updated, nil
 }
 
 // Status check the command's process state and returns
@@ -191,7 +200,10 @@ func (c *Command) Start() error {
 }
 
 func (c *Command) logger() *log.Entry {
-	return log.WithField("command", c.Slug)
+	return log.WithFields(log.Fields{
+		"command": c.Slug,
+		"version": c.Version,
+	})
 }
 
 // Success just proxies the function call to the
@@ -217,10 +229,14 @@ func (c *Commands) Update(cmdSlug string) error {
 
 	cmd.logger().Info("Running update")
 	cmd.status = statusUpdating
-	err := cmd.Update()
+	updated, err := cmd.Update()
 	if err != nil {
 		cmd.status = statusRunning
 		return err
+	}
+
+	if !updated {
+		return nil
 	}
 
 	if err := cmd.Stop(); err != nil {

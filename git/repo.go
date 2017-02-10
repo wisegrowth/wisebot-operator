@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,13 +18,26 @@ import (
 //
 // This struct also implements the `command.Updater` interface.
 type Repo struct {
-	Path   string
-	Remote string
+	Path   string `json:"path"`
+	Remote string `json:"remote"`
 
 	name string
 	head string
 
 	postReceiveHooks []PostReceiveHook
+}
+
+type rawRepo Repo
+
+// MarshalJSON implements the marshal json interface
+func (r *Repo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		*rawRepo
+		Version string `json:"version"`
+	}{
+		rawRepo: (*rawRepo)(r),
+		Version: r.CurrentHead(),
+	})
 }
 
 // PostReceiveHook is a function that runs after
@@ -39,6 +53,7 @@ const (
 // current head, it executes a `git reset --hard origin/master`
 // and then runs the repository post receive hooks.
 // The function must return the new head sha if succeed.
+// If no updates are found, it returns the actual head SHA.
 func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	logger := r.logger()
 	logger.Info("Updating...")
@@ -61,7 +76,7 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	oHead := sanitizeOutput(originHead)
 	if oHead == r.head {
 		logger.Info("No new updates")
-		return "", nil
+		return r.head, nil
 	}
 	logger.Info("Update found")
 
@@ -111,10 +126,15 @@ func (r *Repo) runPostReceiveHooks() error {
 
 // Bootstrap clones the repo if it not exists and runs the
 // post-receive hooks. If there is no errors, it updates the
-// repository current head sha.
-func (r *Repo) Bootstrap() error {
+// repository current head sha. If the repo is already cloned,
+// the function receives an arguments that indicates if we want
+// to update (git pull) the repo or not.
+func (r *Repo) Bootstrap(wantToUpdate bool) error {
+	updated := false
+
 	if _, err := os.Stat(fmt.Sprintf("%s/.git", r.Path)); err != nil {
 		if os.IsNotExist(err) {
+			updated = true
 			logger := r.logger()
 
 			logger.Info("Clonning...")
@@ -137,7 +157,17 @@ func (r *Repo) Bootstrap() error {
 		}
 	}
 
-	return r.updateHead()
+	if err := r.updateHead(); err != nil {
+		return err
+	}
+
+	if !updated && wantToUpdate {
+		if _, err := r.Update(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *Repo) logger() *log.Entry {
