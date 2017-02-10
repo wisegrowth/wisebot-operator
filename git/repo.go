@@ -125,6 +125,10 @@ func (r *Repo) Bootstrap() error {
 				return err
 			}
 
+			if err := r.updateHead(); err != nil {
+				return err
+			}
+
 			if err := r.runPostReceiveHooks(); err != nil {
 				return err
 			}
