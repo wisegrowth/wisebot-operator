@@ -115,7 +115,7 @@ func (r *Repo) runPostReceiveHooks() error {
 func (r *Repo) Bootstrap() error {
 	if _, err := os.Stat(fmt.Sprintf("%s/.git", r.Path)); err != nil {
 		if os.IsNotExist(err) {
-			logger := r.logger().WithField("repo", r.Path)
+			logger := r.logger()
 
 			logger.Info("Clonning...")
 			clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
