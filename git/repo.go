@@ -144,6 +144,7 @@ func (r *Repo) logger() *log.Entry {
 	return log.WithFields(log.Fields{
 		"process": r.name,
 		"version": r.head,
+		"repo":    r.Path,
 	})
 }
 
