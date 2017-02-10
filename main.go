@@ -21,9 +21,9 @@ const (
 	// wisebotCoreCommandSlug = "wisebot-core"
 	// wisebotCoreRepoPath    = "~/wisebot-core"
 	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
-	wisebotCoreCommandSlug = "wisebots-api"
-	wisebotCoreRepoPath    = "~/wisebots-api"
-	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebots-api.git"
+	wisebotCoreCommandSlug = "wisebot-test"
+	wisebotCoreRepoPath    = "~/Code/wg/test"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
 
 	bleCommandSlug = "wisebot-ble"
 	bleRepoPath    = "~/wisebot-ble"
@@ -74,7 +74,8 @@ func main() {
 		wisebotCoreRepo.NpmPrune(),
 	)
 
-	check(wisebotCoreRepo.Bootstrap())
+	const update = true
+	check(wisebotCoreRepo.Bootstrap(update))
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
