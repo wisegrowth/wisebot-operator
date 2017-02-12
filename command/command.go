@@ -62,19 +62,29 @@ func (c *Command) MarshalJSON() ([]byte, error) {
 // Update uses the updater in order to update the code base
 // and the command version.
 // If no updater is found, it returns an error.
-func (c *Command) Update() error {
+// Update function returns a boolean that indicates
+// if the code was either updated or not. Knowing if
+// the command was updated is important in order to
+// decide if we need to restart it or not.
+func (c *Command) Update() (updated bool, err error) {
 	if c.Updater == nil {
-		return fmt.Errorf("command: no updater for %q command", c.Slug)
+		return false, fmt.Errorf("command: no updater for %q command", c.Slug)
 	}
 
+	oldVersion := c.Version
 	newVersion, err := c.Updater.Update()
 	if err != nil {
-		return nil
+		return false, err
 	}
 
-	c.Version = newVersion
+	if newVersion != oldVersion {
+		c.Version = newVersion
+		updated = true
+	}
 
-	return nil
+	c.logger().Debugf("updated: %v - oldVersion: %q - newVersion: %q", updated, oldVersion, newVersion)
+
+	return updated, nil
 }
 
 // Status check the command's process state and returns
@@ -183,15 +193,16 @@ func (c *Command) Start() error {
 		return err
 	}
 
-	go func() { c.Cmd.Wait() }()
-
 	c.status = statusRunning
 
 	return nil
 }
 
 func (c *Command) logger() *log.Entry {
-	return log.WithField("command", c.Slug)
+	return log.WithFields(log.Fields{
+		"command": c.Slug,
+		"version": c.Version,
+	})
 }
 
 // Success just proxies the function call to the
@@ -217,17 +228,23 @@ func (c *Commands) Update(cmdSlug string) error {
 
 	cmd.logger().Info("Running update")
 	cmd.status = statusUpdating
-	err := cmd.Update()
+	updated, err := cmd.Update()
 	if err != nil {
 		cmd.status = statusRunning
 		return err
+	}
+
+	if !updated {
+		return nil
 	}
 
 	if err := cmd.Stop(); err != nil {
 		return err
 	}
 
+	updater := cmd.Updater
 	cmd = NewCommand(cmd.Log, cmd.Slug, cmd.Version, cmd.cmdName, cmd.cmdArgs...)
+	cmd.Updater = updater
 	(*c)[cmdSlug] = cmd
 
 	if err := cmd.Start(); err != nil {
@@ -294,7 +311,6 @@ func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) 
 		Log:     log,
 		Cmd:     exec.Command(name, args...),
 		Slug:    slug,
-		Updater: noopUpdater{},
 		Version: version,
 
 		status:  statusIdle,
@@ -307,9 +323,17 @@ func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) 
 		Pgid:    0,
 	}
 
+	cmd.Updater = &noopUpdater{cmd}
+
 	return cmd
 }
 
-type noopUpdater struct{}
+type noopUpdater struct {
+	*Command
+}
 
-func (nu noopUpdater) Update() (string, error) { return "", nil }
+func (nu *noopUpdater) Update() (string, error) {
+	nu.logger().Warn("Noop Updater Called")
+
+	return nu.Version, nil
+}
