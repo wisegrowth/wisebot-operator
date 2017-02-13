@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/WiseGrowth/operator/command"
 )
 
 // Network represents an available wifi network.
@@ -28,7 +26,7 @@ func (n *Network) IsWPA() bool {
 // AvailableNetworks return an array of available
 // wifi networks.
 func AvailableNetworks() ([]*Network, error) {
-	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
+	out, err := exec.Command("iwlist", "wlan0", "scan").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +77,10 @@ network={
 `
 )
 
+var (
+	wifiConfigTemplate = template.Must(template.New("wifiConfigWpa").Delims("[[", "]]").Parse(wifiConfigTmpl))
+)
+
 // SetupWifi configures the raspberry pi wifi network.
 func SetupWifi(n *Network) error {
 	file, err := os.OpenFile(wpaSupplicantPath, os.O_WRONLY, os.ModeAppend)
@@ -87,20 +89,14 @@ func SetupWifi(n *Network) error {
 	}
 
 	defer file.Close()
-	t := template.Must(template.New("wifiConfigWpa").Delims("[[", "]]").Parse(wifiConfigTmpl))
 
-	if err := t.Execute(file, n); err != nil {
+	if err := wifiConfigTemplate.Execute(file, n); err != nil {
 		return err
 	}
 
-	// If we use the os.Stdout as the log file, the command sometimes fail
-	// perhaps we should look into it.
-	cmd := command.NewCommand(nil, "wpa_cli", "reconfigure")
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	cmd := exec.Command("wpa_cli", "reconfigure")
 
-	if err := cmd.Wait(); err != nil {
+	if err := cmd.Run(); err != nil {
 		return err
 	}
 
@@ -110,29 +106,17 @@ func SetupWifi(n *Network) error {
 // IsConnected executes a ping command in order to check
 // wether the device is connected to the network.
 func IsConnected() (bool, error) {
-	ping := command.NewCommand(nil, "ping", "-w", "1", "8.8.8.8")
-	timeout := time.NewTimer(15 * time.Second)
+	ping := exec.Command("ping", "-t", "20", "-w", "1", "8.8.8.8")
 
-	select {
-	case <-timeout.C:
-		return false, errors.New("Could not connect to the wifi")
-	default:
-		if err := ping.Start(); err != nil {
-			return false, err
+	if err := ping.Run(); err != nil {
+		// Ignore exit errors
+		if _, ok := (err).(*exec.ExitError); !ok {
+			return false, nil
 		}
-		if err := ping.Wait(); err != nil {
-			// Ignore exit errors
-			if _, ok := (err).(*exec.ExitError); !ok {
-				return false, err
-			}
-		}
-
-		if ping.Success() {
-			return true, nil
-		}
+		return false, err // exit error
 	}
 
-	return false, nil
+	return true, nil
 }
 
 // waitForNetwork just perform a ping command to google's DNS server
@@ -143,31 +127,26 @@ func IsConnected() (bool, error) {
 // the network is up or down, all other errors are returned since
 // are unexpected errors.
 func waitForNetwork() error {
-	timeout := time.NewTimer(time.Minute * 3)
 	sleepDuration := time.Second * 4
 
 	for {
-		ping := command.NewCommand(nil, "ping", "-w", "1", "8.8.8.8")
+		ping := exec.Command("ping", "-w", "1", "8.8.8.8")
 
 		select {
-		case <-timeout.C:
+		case <-time.After(time.Minute * 3):
 			return errors.New("Could not connect to the wifi")
 		default:
-			if err := ping.Start(); err != nil {
-				return err
-			}
-			if err := ping.Wait(); err != nil {
+			if err := ping.Run(); err != nil {
 				// Ignore exit errors
 				if _, ok := (err).(*exec.ExitError); !ok {
 					return err
 				}
+				break // exit error
 			}
 
-			if ping.Success() {
-				return nil
-			}
-
-			time.Sleep(sleepDuration)
+			return nil
 		}
+
+		time.Sleep(sleepDuration)
 	}
 }
