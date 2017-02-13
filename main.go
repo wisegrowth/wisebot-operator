@@ -7,9 +7,9 @@ import (
 	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/WiseGrowth/operator/command"
-	"github.com/WiseGrowth/operator/git"
-	"github.com/WiseGrowth/operator/iot"
+	"github.com/WiseGrowth/wisebot-operator/command"
+	"github.com/WiseGrowth/wisebot-operator/git"
+	"github.com/WiseGrowth/wisebot-operator/iot"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
