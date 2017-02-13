@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/WiseGrowth/operator/command"
-	"github.com/WiseGrowth/operator/git"
+	"github.com/WiseGrowth/wisebot-operator/command"
+	"github.com/WiseGrowth/wisebot-operator/git"
 
 	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
