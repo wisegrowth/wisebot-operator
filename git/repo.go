@@ -11,10 +11,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// Repo represents a git repo, it contains its path
-// and remote.
-// This struct has methods to boostrap and update the
-// git repository.
+// Repo represents a git repo, it contains its path and remote.
+// This struct has methods to boostrap and update the git repository.
 //
 // This struct also implements the `command.Updater` interface.
 type Repo struct {
@@ -25,6 +23,16 @@ type Repo struct {
 	head string
 
 	postReceiveHooks []PostReceiveHook
+}
+
+// NewRepo initialize and returns a repository pointer.
+func NewRepo(repoPath, remote string, postReceiveHooks ...PostReceiveHook) *Repo {
+	return &Repo{
+		name:             path.Base(repoPath),
+		Path:             repoPath,
+		Remote:           remote,
+		postReceiveHooks: postReceiveHooks,
+	}
 }
 
 type rawRepo Repo
@@ -42,7 +50,7 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 
 // PostReceiveHook is a function that runs after
 // clonning and updating the repo.
-type PostReceiveHook func() error
+type PostReceiveHook func(*Repo) error
 
 const (
 	upstream = "origin/master"
@@ -116,7 +124,7 @@ func (r *Repo) CurrentHead() string {
 func (r *Repo) runPostReceiveHooks() error {
 	r.logger().Info("Aplying post-receive hooks")
 	for _, hook := range r.postReceiveHooks {
-		if err := hook(); err != nil {
+		if err := hook(r); err != nil {
 			return err
 		}
 	}
@@ -133,26 +141,26 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 	updated := false
 
 	if _, err := os.Stat(fmt.Sprintf("%s/.git", r.Path)); err != nil {
-		if os.IsNotExist(err) {
-			updated = true
-			logger := r.logger()
+		if os.IsExist(err) {
+			return err
+		}
 
-			logger.Info("Clonning...")
-			clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
-			clone.Dir = path.Dir(r.Path)
+		updated = true
+		logger := r.logger()
 
-			if err := clone.Run(); err != nil {
-				return err
-			}
+		logger.Info("Clonning...")
+		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
+		clone.Dir = path.Dir(r.Path)
 
-			if err := r.updateHead(); err != nil {
-				return err
-			}
+		if err := clone.Run(); err != nil {
+			return err
+		}
 
-			if err := r.runPostReceiveHooks(); err != nil {
-				return err
-			}
-		} else {
+		if err := r.updateHead(); err != nil {
+			return err
+		}
+
+		if err := r.runPostReceiveHooks(); err != nil {
 			return err
 		}
 	}
@@ -191,15 +199,6 @@ func (r *Repo) updateHead() error {
 	return nil
 }
 
-// NewRepo initialize and returns a repository pointer.
-func NewRepo(repoPath, remote string) *Repo {
-	return &Repo{
-		name:   path.Base(repoPath),
-		Path:   repoPath,
-		Remote: remote,
-	}
-}
-
 // AddPostReceiveHooks receives one or multiple PostReceiveHooks
 // and appends them to the repo `postReceiveHooks` private attribute.
 func (r *Repo) AddPostReceiveHooks(handlers ...PostReceiveHook) {
@@ -210,26 +209,22 @@ func sanitizeOutput(b []byte) string {
 	return string(bytes.TrimSpace(b))
 }
 
-// NpmInstall is a PostReceiveHook preset that runs
+// NpmInstallHook is a PostReceiveHook preset that runs
 // a `npm install --production` command.
-func (r *Repo) NpmInstall() func() error {
-	return func() error {
-		npmInstall := exec.Command("npm", "install", "--production")
-		npmInstall.Dir = r.Path
+func NpmInstallHook(r *Repo) error {
+	npmInstall := exec.Command("npm", "install", "--production")
+	npmInstall.Dir = r.Path
 
-		r.logger().Info("Running npm install")
-		return npmInstall.Run()
-	}
+	r.logger().Info("Running npm install")
+	return npmInstall.Run()
 }
 
-// NpmPrune is a PostReceiveHook preset that runs
+// NpmPruneHook is a PostReceiveHook preset that runs
 // a `npm prune` command.
-func (r *Repo) NpmPrune() func() error {
-	return func() error {
-		prune := exec.Command("npm", "prune")
-		prune.Dir = r.Path
+func NpmPruneHook(r *Repo) error {
+	prune := exec.Command("npm", "prune")
+	prune.Dir = r.Path
 
-		r.logger().Info("Running npm prune")
-		return prune.Run()
-	}
+	r.logger().Info("Running npm prune")
+	return prune.Run()
 }
