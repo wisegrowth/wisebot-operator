@@ -94,7 +94,6 @@ func (c *Client) Subscribe(topic string, onMessage MQTT.MessageHandler) error {
 		return fmt.Errorf("the topic %q is already subscribed", topic)
 	}
 
-	// TODO(sebastianvera): Maybe handle topic replacement?
 	c.subscriptions[topic] = onMessage
 
 	return nil

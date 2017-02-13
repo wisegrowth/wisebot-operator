@@ -1,7 +1,4 @@
 bin/
 .DS_Store
-tls/
 *.js
-wisebot/
-wisebots-api/
 config.json
