@@ -67,11 +67,8 @@ func main() {
 	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
-	)
-
-	wisebotCoreRepo.AddPostReceiveHooks(
-		wisebotCoreRepo.NpmInstall(),
-		wisebotCoreRepo.NpmPrune(),
+		git.NpmInstallHook,
+		git.NpmPruneHook,
 	)
 
 	const update = false
