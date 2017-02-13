@@ -3,7 +3,9 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 type config struct {
@@ -14,9 +16,17 @@ type config struct {
 	} `json:"keys"`
 }
 
+var (
+	errNoConfigFile = fmt.Errorf("config: file does not exists")
+)
+
 func loadConfig(path string) (*config, error) {
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errNoConfigFile
+		}
+
 		return nil, err
 	}
 
