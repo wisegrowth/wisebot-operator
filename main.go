@@ -29,7 +29,7 @@ const (
 	bleRepoPath    = "~/wisebot-ble"
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
-	wisebotConfigPath = "./config.json" // TODO: use real path
+	wisebotConfigPath = "~/.config/wisebot-operator/config.json"
 
 	iotHost = "a55lp0huv9vtb.iot.us-west-2.amazonaws.com"
 )
@@ -57,6 +57,10 @@ func init() {
 
 	// ----- Load wisebot config
 	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
+	if err == errNoConfigFile {
+		log.Errorf("The %q config file does not exists", wisebotConfigExpandedPath)
+		os.Exit(1)
+	}
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
