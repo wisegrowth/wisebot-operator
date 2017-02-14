@@ -5,8 +5,20 @@ import (
 	ravenSentry "github.com/evalphobia/logrus_sentry"
 )
 
+// Logger is the exposed standard-ish logging interface
+type Logger interface {
+	Debug(v ...interface{})
+	Info(v ...interface{})
+	Error(v ...interface{})
+	Warn(v ...interface{})
+	Fatal(v ...interface{})
+
+	WithFields(logrus.Fields) *logrus.Entry
+	WithField(key string, val interface{}) *logrus.Entry
+}
+
 var (
-	log *logrus.Logger
+	log Logger
 )
 
 // setLogger sets the package level logger
@@ -15,7 +27,7 @@ func setLogger(l *logrus.Logger) {
 }
 
 // GetLogger returns package level logger
-func GetLogger() *logrus.Logger {
+func GetLogger() Logger {
 	return log
 }
 
