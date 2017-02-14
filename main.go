@@ -22,7 +22,7 @@ const (
 	// wisebotCoreRepoPath    = "~/wisebot-core"
 	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
 	wisebotServiceName    = "wisebot-test"
-	wisebotCoreRepoPath   = "~/Code/wg/test"
+	wisebotCoreRepoPath   = "~/wisebot-test"
 	wisebotCoreRepoRemote = "git@github.com:wisegrowth/test.git"
 
 	bleServiceName = "wisebot-ble"
