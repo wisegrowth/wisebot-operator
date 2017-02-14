@@ -9,6 +9,7 @@ import (
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
+	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // Service encapsulates a command an its repository
@@ -66,7 +67,7 @@ func (ss *ServiceStore) MarshalJSON() ([]byte, error) {
 }
 
 func (s *Service) logger() *log.Entry {
-	return log.WithFields(log.Fields{
+	return logger.GetLogger().WithFields(log.Fields{
 		"name":         s.Name,
 		"version":      s.cmd.Version,
 		"status":       s.cmd.Status(),
