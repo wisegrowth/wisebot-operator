@@ -14,8 +14,8 @@ var (
 	gpioFileName = regexp.MustCompile("\\Agpio(\\d{1,2})\\z")
 )
 
-// TurnOffPins shuts down all GPIO pins,
-// if all pins are turned off it returns a nil error
+// TurnOffPins shuts down all GPIO pins, if all pins are turned off it returns
+// a nil error
 func TurnOffPins() error {
 	pins, err := availablePins()
 	if err != nil {

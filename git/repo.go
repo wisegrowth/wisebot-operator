@@ -13,9 +13,8 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
-// Repo represents a git repo, it contains its path and remote.
-// This struct has methods to boostrap and update the git repository.
-//
+// Repo represents a git repo, it contains its path and remote. This struct has
+// methods to boostrap and update the git repository.
 // This struct also implements the `command.Updater` interface.
 type Repo struct {
 	Path   string `json:"path"`
@@ -50,20 +49,18 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// PostReceiveHook is a function that runs after
-// clonning and updating the repo.
+// PostReceiveHook is a function that runs after clonning and updating the repo.
 type PostReceiveHook func(*Repo) error
 
 const (
 	upstream = "origin/master"
 )
 
-// Update runs a git fetch to the `origin` remote,
-// if the origin/master has a different sha that the
-// current head, it executes a `git reset --hard origin/master`
-// and then runs the repository post receive hooks.
-// The function must return the new head sha if succeed.
-// If no updates are found, it returns the actual head SHA.
+// Update runs a git fetch to the `origin` remote, if the origin/master has a
+// different sha that the current head, it executes a
+// `git reset --hard origin/master` and then runs the repository post receive
+// hooks. The function must return the new head sha if succeeds. If no updates
+// are found, it returns the actual head SHA.
 func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	log := r.logger()
 	log.Info("Updating")

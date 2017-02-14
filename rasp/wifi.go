@@ -17,14 +17,12 @@ type Network struct {
 	Password   string `json:"-"`
 }
 
-// IsWPA returns true if the encryption is
-// wpa.
+// IsWPA returns true if the encryption is WPA.
 func (n *Network) IsWPA() bool {
 	return strings.Contains(n.Encryption, "WPA")
 }
 
-// AvailableNetworks return an array of available
-// wifi networks.
+// AvailableNetworks return an array of available wifi networks.
 func AvailableNetworks() ([]*Network, error) {
 	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
 	if err != nil {
@@ -103,8 +101,8 @@ func SetupWifi(n *Network) error {
 	return waitForNetwork()
 }
 
-// IsConnected executes a ping command in order to check
-// wether the device is connected to the network.
+// IsConnected executes a ping command in order to check wether the device is
+// connected to the network.
 func IsConnected() (bool, error) {
 	ping := exec.Command("ping", "-t", "20", "-w", "1", "8.8.8.8")
 
@@ -119,13 +117,13 @@ func IsConnected() (bool, error) {
 	return true, nil
 }
 
-// waitForNetwork just perform a ping command to google's DNS server
-// to check if the network is up or down.
+// waitForNetwork just perform a ping command to google's DNS server to check
+// if the network is up or down.
 // The command will execute for 3 minutes and it sleeps 4 seconds before
 // trying again if the ping command fails.
 // The ping command ignores the exec.ExitError errors since this tell us that
-// the network is up or down, all other errors are returned since
-// are unexpected errors.
+// the network is up or down, all other errors are returned since are
+// unexpected errors.
 func waitForNetwork() error {
 	sleepDuration := time.Second * 4
 
