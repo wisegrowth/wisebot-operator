@@ -83,7 +83,6 @@ func main() {
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
 		nil,
-		wisebotServiceName,
 		wisebotCoreRepo.CurrentHead(),
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
