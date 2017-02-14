@@ -17,9 +17,8 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	responseBytes, _ := json.Marshal(&struct {
-		Data ServiceStore `json:"data"`
-	}{services})
+	res := &healthzResponse{Data: services}
+	responseBytes, _ := json.Marshal(res)
 
 	token := client.Publish(topic+":response", byte(1), false, responseBytes)
 	if token.Wait() && token.Error() != nil {
