@@ -26,7 +26,7 @@ func (n *Network) IsWPA() bool {
 // AvailableNetworks return an array of available
 // wifi networks.
 func AvailableNetworks() ([]*Network, error) {
-	out, err := exec.Command("iwlist", "wlan0", "scan").Output()
+	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
 	if err != nil {
 		return nil, err
 	}
