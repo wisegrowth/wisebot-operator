@@ -90,18 +90,19 @@ func (ss *ServiceStore) Update(name string) error {
 	}
 
 	if !updated {
+		svc.logger().Info("No new updates")
 		return nil
 	}
 
+	svc.logger().Info("Update found, stopping")
 	if err := cmd.Stop(); err != nil {
 		return err
 	}
 
-	updater := cmd.Updater
-	cmd = command.NewCommand(cmd.Log, svc.Name, cmd.Version, cmd.ExecName, cmd.ExecArgs...)
-	cmd.Updater = updater
+	cmd = cmd.Clone()
 	(*ss)[name] = newService(svc.Name, cmd, svc.repo)
 
+	svc.logger().Info("Starting updated service")
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -123,6 +124,7 @@ func (ss *ServiceStore) StartService(name string) error {
 		return fmt.Errorf("services: service %q not found for starting", name)
 	}
 
+	svc.logger().Info("Starting")
 	return svc.cmd.Start()
 }
 
@@ -130,6 +132,7 @@ func (ss *ServiceStore) StartService(name string) error {
 // looping and calling each command Start function.
 func (ss *ServiceStore) Start() error {
 	for _, svc := range *ss {
+		svc.logger().Info("Starting")
 		if err := svc.cmd.Start(); err != nil {
 			return err
 		}
@@ -146,6 +149,7 @@ func (ss *ServiceStore) StopService(name string) error {
 		return fmt.Errorf("services: service %q not found for stopping", name)
 	}
 
+	svc.logger().Info("Stopping")
 	return svc.cmd.Stop()
 }
 
@@ -153,6 +157,7 @@ func (ss *ServiceStore) StopService(name string) error {
 // looping and calling each service command's Stop function.
 func (ss *ServiceStore) Stop() error {
 	for _, svc := range *ss {
+		svc.logger().Info("Stopping")
 		if err := svc.cmd.Stop(); err != nil {
 			return err
 		}
