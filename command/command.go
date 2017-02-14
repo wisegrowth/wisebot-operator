@@ -12,13 +12,17 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// Status represents the current command status
+type Status string
+
+// Command statuses
 const (
-	statusIdle     = "idle"
-	statusRunning  = "running"
-	statusError    = "error"
-	statusUpdating = "updating"
-	statusDone     = "succeed"
-	statusStopped  = "stopped"
+	StatusIdle     Status = "idle"
+	StatusRunning  Status = "running"
+	StatusError    Status = "error"
+	StatusUpdating Status = "updating"
+	StatusDone     Status = "succeed"
+	StatusStopped  Status = "stopped"
 )
 
 // Command represents a os level command, which can also
@@ -32,12 +36,12 @@ type Command struct {
 	Slug    string
 	Version string
 
-	status string
+	status Status
 
 	Updater Updater
 
-	cmdName string
-	cmdArgs []string
+	ExecName string
+	ExecArgs []string
 }
 
 // Updater knows how to update the codebase of a specific
@@ -51,12 +55,17 @@ func (c *Command) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		Slug    string `json:"slug"`
 		Version string `json:"version"`
-		Status  string `json:"status"`
+		Status  Status `json:"status"`
 	}{
 		Slug:    c.Slug,
 		Status:  c.Status(),
 		Version: c.Version,
 	})
+}
+
+// SetStatus sets the command current status
+func (c *Command) SetStatus(status Status) {
+	c.status = status
 }
 
 // Update uses the updater in order to update the code base
@@ -89,7 +98,7 @@ func (c *Command) Update() (updated bool, err error) {
 
 // Status check the command's process state and returns
 // a verbose status.
-func (c *Command) Status() string {
+func (c *Command) Status() Status {
 	if c.Cmd.ProcessState == nil {
 		return c.status
 	}
@@ -97,11 +106,11 @@ func (c *Command) Status() string {
 	ps := c.Cmd.ProcessState
 
 	if ps.Success() {
-		return statusDone
+		return StatusDone
 	}
 
 	if ps.Exited() {
-		return statusError
+		return StatusError
 	}
 
 	return c.status
@@ -125,11 +134,11 @@ func (c *Command) Stop() error {
 		defer c.CloseLog()
 	}
 
-	if c.status == statusStopped {
+	if c.status == StatusStopped {
 		return fmt.Errorf("commands: command %q is already stopped", c.Slug)
 	}
 
-	c.status = statusStopped
+	c.status = StatusStopped
 
 	c.logger().Info("Killing process")
 	if c.Cmd.Process == nil {
@@ -193,7 +202,7 @@ func (c *Command) Start() error {
 		return err
 	}
 
-	c.status = statusRunning
+	c.status = StatusRunning
 
 	return nil
 }
@@ -211,100 +220,6 @@ func (c *Command) Success() bool {
 	return c.Cmd.ProcessState.Success()
 }
 
-// Commands represents a set of commands.
-// It has convinient methods to run and stop all
-// commands.
-type Commands map[string]*Command
-
-// Update search the given command in the map and runs its
-// Update function. If the command is not found, an error is
-// returned.
-func (c *Commands) Update(cmdSlug string) error {
-	cmd, ok := (*c)[cmdSlug]
-
-	if !ok {
-		return fmt.Errorf("commands: command with slug %q not found", cmdSlug)
-	}
-
-	cmd.logger().Info("Running update")
-	cmd.status = statusUpdating
-	updated, err := cmd.Update()
-	if err != nil {
-		cmd.status = statusRunning
-		return err
-	}
-
-	if !updated {
-		return nil
-	}
-
-	if err := cmd.Stop(); err != nil {
-		return err
-	}
-
-	updater := cmd.Updater
-	cmd = NewCommand(cmd.Log, cmd.Slug, cmd.Version, cmd.cmdName, cmd.cmdArgs...)
-	cmd.Updater = updater
-	(*c)[cmdSlug] = cmd
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Add adds the received command into the commands list
-func (c *Commands) Add(cmd *Command) {
-	(*c)[cmd.Slug] = cmd
-}
-
-// StartCommand starts a specific command inside the command list.
-// If the command is not found in the list, it returns an error.
-func (c *Commands) StartCommand(slug string) error {
-	cmd, ok := (*c)[slug]
-	if !ok {
-		return fmt.Errorf("command: command %q not found for starting", slug)
-	}
-
-	return cmd.Start()
-}
-
-// Start starts all the commands inside the command list by
-// looping and calling each command Start function.
-func (c *Commands) Start() error {
-	for _, cmd := range *c {
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// StopCommand stops a specific command inside the command list.
-// If the command is not found in the list, it returns an error.
-func (c *Commands) StopCommand(slug string) error {
-	cmd, ok := (*c)[slug]
-	if !ok {
-		return fmt.Errorf("command: command %q not found for stopping", slug)
-	}
-
-	return cmd.Stop()
-}
-
-// Stop stops all the commands inside the command list by
-// looping and calling each command Stop function.
-func (c *Commands) Stop() error {
-	for _, cmd := range *c {
-		if err := cmd.Stop(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // NewCommand returns an initalized command pointer.
 func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) *Command {
 	cmd := &Command{
@@ -313,9 +228,9 @@ func NewCommand(log io.WriteCloser, slug, version, name string, args ...string) 
 		Slug:    slug,
 		Version: version,
 
-		status:  statusIdle,
-		cmdName: name,
-		cmdArgs: args,
+		status:   StatusIdle,
+		ExecName: name,
+		ExecArgs: args,
 	}
 
 	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{

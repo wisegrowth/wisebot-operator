@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/WiseGrowth/wisebot-operator/command"
-	"github.com/WiseGrowth/wisebot-operator/git"
-
 	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
+
+type healthzResponse struct {
+	Data ServiceStore `json:"data"`
+}
 
 func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
@@ -17,8 +18,8 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger.Info("Message received")
 
 	responseBytes, _ := json.Marshal(&struct {
-		Data command.Commands `json:"data"`
-	}{commands})
+		Data ServiceStore `json:"data"`
+	}{services})
 
 	token := client.Publish(topic+":response", byte(1), false, responseBytes)
 	if token.Wait() && token.Error() != nil {
@@ -26,19 +27,9 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	}
 }
 
-type updateCommandResponse struct {
-	Data command.Commands `json:"data"`
-	Meta struct {
-		Repos []*git.Repo `json:"repos"`
-	} `json:"meta"`
-}
-
 func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &updateCommandResponse{
-			Data: commands,
-		}
-		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		res := &healthzResponse{Data: services}
 		responseBytes, _ := json.Marshal(res)
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
@@ -52,11 +43,10 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	// TODO: define payload
 	payload := struct {
-		Data struct {
-			Process string `json:"process"`
-		} `json:"data"`
+		Process struct {
+			Name string `json:"name"`
+		} `json:"process"`
 	}{}
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
@@ -64,7 +54,7 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := commands.Update(payload.Data.Process); err != nil {
+	if err := services.Update(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -72,10 +62,7 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &updateCommandResponse{
-			Data: commands,
-		}
-		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		res := &healthzResponse{Data: services}
 		responseBytes, _ := json.Marshal(res)
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
@@ -89,11 +76,10 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	// TODO: define payload
 	payload := struct {
-		Data struct {
-			Process string `json:"process"`
-		} `json:"data"`
+		Process struct {
+			Name string `json:"name"`
+		} `json:"process"`
 	}{}
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
@@ -101,7 +87,7 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := commands.StopCommand(payload.Data.Process); err != nil {
+	if err := services.StopService(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -109,10 +95,7 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &updateCommandResponse{
-			Data: commands,
-		}
-		res.Meta.Repos = []*git.Repo{wisebotCoreRepo}
+		res := &healthzResponse{Data: services}
 		responseBytes, _ := json.Marshal(res)
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
@@ -126,11 +109,10 @@ func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	// TODO: define payload
 	payload := struct {
-		Data struct {
-			Process string `json:"process"`
-		} `json:"data"`
+		Process struct {
+			Name string `json:"name"`
+		} `json:"process"`
 	}{}
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
@@ -138,7 +120,7 @@ func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := commands.StartCommand(payload.Data.Process); err != nil {
+	if err := services.StartService(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}

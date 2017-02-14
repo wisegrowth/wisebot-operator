@@ -14,18 +14,18 @@ import (
 )
 
 var (
-	commands command.Commands
+	services ServiceStore
 )
 
 const (
-	// wisebotCoreCommandSlug = "wisebot-core"
+	// wisebotServiceName = "wisebot-core"
 	// wisebotCoreRepoPath    = "~/wisebot-core"
 	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
-	wisebotCoreCommandSlug = "wisebot-test"
-	wisebotCoreRepoPath    = "~/Code/wg/test"
-	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
+	wisebotServiceName    = "wisebot-test"
+	wisebotCoreRepoPath   = "~/Code/wg/test"
+	wisebotCoreRepoRemote = "git@github.com:wisegrowth/test.git"
 
-	bleCommandSlug = "wisebot-ble"
+	bleServiceName = "wisebot-ble"
 	bleRepoPath    = "~/wisebot-ble"
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
@@ -64,6 +64,8 @@ func init() {
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
+
+	services = make(ServiceStore)
 }
 
 func main() {
@@ -81,17 +83,15 @@ func main() {
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
 		nil,
-		wisebotCoreCommandSlug,
+		wisebotServiceName,
 		wisebotCoreRepo.CurrentHead(),
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
-	wisebotCoreCommand.Updater = wisebotCoreRepo
 	// TODO: add ble command
 
-	// Append commands to the global variable
-	commands = make(command.Commands)
-	commands.Add(wisebotCoreCommand)
+	// Append services to global store
+	services.Add(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
 
 	// ----- Initialize MQTT connection
 	cert, err := wisebotConfig.getTLSCertificate()
@@ -104,7 +104,7 @@ func main() {
 	check(err)
 
 	// ----- Start application
-	check(commands.Start())
+	check(services.Start())
 	check(client.Connect())
 
 	// ----- Subscribe to MQTT topics
@@ -123,7 +123,7 @@ func main() {
 		client.Disconnect(250)
 		log.Info("[MQTT] Disconnected")
 
-		commands.Stop()
+		services.Stop()
 
 		// rasp.TurnOffPins()
 		quit <- struct{}{}
