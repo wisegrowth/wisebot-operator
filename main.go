@@ -64,8 +64,6 @@ func init() {
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
-
-	services = make(ServiceStore)
 }
 
 func main() {
@@ -90,7 +88,7 @@ func main() {
 	// TODO: add ble command
 
 	// Append services to global store
-	services.Add(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
+	services.Save(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
 
 	// ----- Initialize MQTT connection
 	cert, err := wisebotConfig.getTLSCertificate()
