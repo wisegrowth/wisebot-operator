@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -44,13 +45,18 @@ func (s *Service) Update() (bool, error) {
 // ServiceStore represents a set of commands.
 // It has convinient methods to run and stop all
 // commands.
-type ServiceStore map[string]*Service
+type ServiceStore struct {
+	mu   sync.RWMutex
+	list map[string]*Service
+}
 
 // MarshalJSON implements json marshal interface
-func (ss ServiceStore) MarshalJSON() ([]byte, error) {
-	services := make([]*Service, len(ss))
-	for _, svc := range ss {
+func (ss *ServiceStore) MarshalJSON() ([]byte, error) {
+	services := make([]*Service, len(ss.list))
+	for _, svc := range ss.list {
+		ss.mu.RLock()
 		services = append(services, svc)
+		ss.mu.RUnlock()
 	}
 
 	payload := struct {
@@ -68,11 +74,21 @@ func (s *Service) logger() *log.Entry {
 	})
 }
 
+// Find looks the service in the list by its name. If the service does not
+// exists, it returns a nil Service and a false value.
+func (ss *ServiceStore) Find(name string) (svc *Service, ok bool) {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
+	svc, ok = ss.list[name]
+	return svc, ok
+}
+
 // Update search the given command in the map and runs its
 // Update function. If the command is not found, an error is
 // returned.
 func (ss *ServiceStore) Update(name string) error {
-	svc, ok := (*ss)[name]
+	svc, ok := ss.Find(name)
 
 	if !ok {
 		return fmt.Errorf("services: service with name %q not found", name)
@@ -99,7 +115,7 @@ func (ss *ServiceStore) Update(name string) error {
 	}
 
 	cmd = cmd.Clone()
-	(*ss)[name] = newService(svc.Name, cmd, svc.repo)
+	ss.Save(svc.Name, cmd, svc.repo)
 
 	svc.logger().Info("Starting updated service")
 	if err := cmd.Start(); err != nil {
@@ -109,16 +125,23 @@ func (ss *ServiceStore) Update(name string) error {
 	return nil
 }
 
-// Add builds and add the service to the list
-func (ss *ServiceStore) Add(name string, c *command.Command, r *git.Repo) {
+// Save builds and add the service to the list.
+func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
 	s := newService(name, c, r)
-	(*ss)[s.Name] = s
+
+	if ss.list == nil {
+		ss.list = make(map[string]*Service)
+	}
+
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.list[s.Name] = s
 }
 
 // StartService starts a specific service inside the store.
 // If the service is not found in the list, it returns an error.
 func (ss *ServiceStore) StartService(name string) error {
-	svc, ok := (*ss)[name]
+	svc, ok := ss.Find(name)
 	if !ok {
 		return fmt.Errorf("services: service %q not found for starting", name)
 	}
@@ -130,7 +153,7 @@ func (ss *ServiceStore) StartService(name string) error {
 // Start starts all the commands inside the command list by
 // looping and calling each command Start function.
 func (ss *ServiceStore) Start() error {
-	for _, svc := range *ss {
+	for _, svc := range ss.list {
 		svc.logger().Info("Starting")
 		if err := svc.cmd.Start(); err != nil {
 			return err
@@ -143,7 +166,7 @@ func (ss *ServiceStore) Start() error {
 // StopService stops a specific service inside the store.
 // If the service is not found in the list, it returns an error.
 func (ss *ServiceStore) StopService(name string) error {
-	svc, ok := (*ss)[name]
+	svc, ok := ss.Find(name)
 	if !ok {
 		return fmt.Errorf("services: service %q not found for stopping", name)
 	}
@@ -155,7 +178,7 @@ func (ss *ServiceStore) StopService(name string) error {
 // Stop stops all the services inside the store by
 // looping and calling each service command's Stop function.
 func (ss *ServiceStore) Stop() error {
-	for _, svc := range *ss {
+	for _, svc := range ss.list {
 		svc.logger().Info("Stopping")
 		if err := svc.cmd.Stop(); err != nil {
 			return err
