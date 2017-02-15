@@ -18,7 +18,6 @@ type Service struct {
 }
 
 func newService(name string, c *command.Command, r *git.Repo) *Service {
-	c.Updater = r
 	return &Service{Name: name, cmd: c, repo: r}
 }
 
@@ -39,7 +38,7 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 
 // Update proxies function to the its command
 func (s *Service) Update() (bool, error) {
-	return s.cmd.Update()
+	return s.cmd.Update(s.repo)
 }
 
 // ServiceStore represents a set of commands.
@@ -83,7 +82,7 @@ func (ss *ServiceStore) Update(name string) error {
 
 	svc.logger().Info("Running update")
 	cmd.SetStatus(command.StatusUpdating)
-	updated, err := cmd.Update()
+	updated, err := svc.Update()
 	if err != nil {
 		svc.cmd.SetStatus(command.StatusRunning)
 		return err

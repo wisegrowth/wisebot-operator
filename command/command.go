@@ -31,7 +31,6 @@ type Command struct {
 	Cmd *exec.Cmd
 
 	Version string
-	Updater Updater
 
 	// Maybe this will help us debugging when a command fails?
 	// stderr *bytes.Buffer
@@ -46,7 +45,6 @@ type Command struct {
 // you stop it, then clone it, then you start the new cloned process.
 func (c *Command) Clone() *Command {
 	cmd := NewCommand(c.Log, c.Version, c.execName, c.execArgs...)
-	cmd.Updater = c.Updater
 	return cmd
 }
 
@@ -84,13 +82,9 @@ func (c *Command) SetStatus(status Status) {
 // returns a boolean that indicate if the code was either updated or not.
 // Knowing if the command was updated is important in order to decide if we
 // need to restart it or not.
-func (c *Command) Update() (updated bool, err error) {
-	if c.Updater == nil {
-		return false, fmt.Errorf("command: no updater for %q command", c.Slug())
-	}
-
+func (c *Command) Update(updater Updater) (updated bool, err error) {
 	oldVersion := c.Version
-	newVersion, err := c.Updater.Update()
+	newVersion, err := updater.Update()
 	if err != nil {
 		return false, err
 	}
@@ -229,15 +223,5 @@ func NewCommand(log io.WriteCloser, version, name string, args ...string) *Comma
 		Pgid:    0,
 	}
 
-	cmd.Updater = &noopUpdater{cmd}
-
 	return cmd
-}
-
-type noopUpdater struct {
-	*Command
-}
-
-func (nu *noopUpdater) Update() (string, error) {
-	return nu.Version, nil
 }
