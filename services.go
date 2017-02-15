@@ -129,8 +129,15 @@ func (ss *ServiceStore) Update(name string) error {
 func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
 	s := newService(name, c, r)
 
-	if ss.list == nil {
+	// Is this correct?
+	ss.mu.RLock()
+	list := ss.list
+	ss.mu.RUnlock()
+
+	if list == nil {
+		ss.mu.Lock()
 		ss.list = make(map[string]*Service)
+		ss.mu.Unlock()
 	}
 
 	ss.mu.Lock()
@@ -153,6 +160,9 @@ func (ss *ServiceStore) StartService(name string) error {
 // Start starts all the commands inside the command list by
 // looping and calling each command Start function.
 func (ss *ServiceStore) Start() error {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
 	for _, svc := range ss.list {
 		svc.logger().Info("Starting")
 		if err := svc.cmd.Start(); err != nil {
@@ -178,6 +188,9 @@ func (ss *ServiceStore) StopService(name string) error {
 // Stop stops all the services inside the store by
 // looping and calling each service command's Stop function.
 func (ss *ServiceStore) Stop() error {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
 	for _, svc := range ss.list {
 		svc.logger().Info("Stopping")
 		if err := svc.cmd.Stop(); err != nil {
