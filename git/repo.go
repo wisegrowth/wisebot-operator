@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"path"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
+
+	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // Repo represents a git repo, it contains its path and remote.
@@ -63,8 +65,8 @@ const (
 // The function must return the new head sha if succeed.
 // If no updates are found, it returns the actual head SHA.
 func (r *Repo) Update() (updatedHeadSHA string, err error) {
-	logger := r.logger()
-	logger.Info("Updating...")
+	log := r.logger()
+	log.Info("Updating")
 
 	fetch := exec.Command("git", "fetch", "origin")
 	fetch.Dir = r.Path
@@ -83,16 +85,16 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 
 	oHead := sanitizeOutput(originHead)
 	if oHead == r.head {
-		logger.Info("No new updates")
+		log.Info("No new updates")
 		return r.head, nil
 	}
-	logger.Info("Update found")
+	log.Info("Update found")
 
 	updateCmd := exec.Command("git", "reset", "--hard", upstream)
 	updateCmd.Dir = r.Path
 
-	logger = logger.WithFields(log.Fields{"new_version": oHead})
-	logger.Info("Downloading...")
+	log = log.WithFields(logrus.Fields{"new_version": oHead})
+	log.Info("Downloading")
 	if err := updateCmd.Run(); err != nil {
 		return "", err
 	}
@@ -104,11 +106,11 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	cleanCmd := exec.Command("git", "clean", "-f", "-d", "-X")
 	cleanCmd.Dir = r.Path
 
-	logger.Info("Cleaning...")
+	log.Info("Cleaning")
 	if err := cleanCmd.Run(); err != nil {
 		return "", err
 	}
-	logger.Info("Update finished")
+	log.Info("Update finished")
 	if err := r.runPostReceiveHooks(); err != nil {
 		return "", err
 	}
@@ -147,7 +149,7 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 		updated = true
 		logger := r.logger()
 
-		logger.Info("Clonning...")
+		logger.Info("Clonning")
 		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote, r.Path)
 		clone.Dir = path.Dir(r.Path)
 
@@ -177,8 +179,8 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 	return nil
 }
 
-func (r *Repo) logger() *log.Entry {
-	return log.WithFields(log.Fields{
+func (r *Repo) logger() *logrus.Entry {
+	return logger.GetLogger().WithFields(logrus.Fields{
 		"process": r.name,
 		"version": r.head,
 		"repo":    r.Path,

@@ -4,23 +4,22 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime/debug"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
+	"github.com/WiseGrowth/wisebot-operator/logger"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/prometheus/common/log"
 )
 
 var (
 	services ServiceStore
+
+	sentryDSN string
 )
 
 const (
-	// wisebotServiceName = "wisebot-core"
-	// wisebotCoreRepoPath    = "~/wisebot-core"
-	// wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
 	wisebotServiceName    = "wisebot-test"
 	wisebotCoreRepoPath   = "~/wisebot-test"
 	wisebotCoreRepoRemote = "git@github.com:wisegrowth/test.git"
@@ -47,8 +46,6 @@ var (
 
 func init() {
 	var err error
-	log.SetLevel(log.DebugLevel)
-
 	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
 	check(err)
 
@@ -64,6 +61,8 @@ func init() {
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
+
+	logger.Init(wisebotConfig.WisebotID, sentryDSN)
 }
 
 func main() {
@@ -135,8 +134,6 @@ func main() {
 
 func check(err error) {
 	if err != nil {
-		debug.PrintStack()
-		log.Fatal(err)
-		os.Exit(1)
+		logger.GetLogger().Fatal(err)
 	}
 }

@@ -15,7 +15,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
+	"github.com/WiseGrowth/wisebot-operator/logger"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
@@ -141,8 +142,8 @@ func (c *Client) brokerURL(protocol string) string {
 	return fmt.Sprintf("%s://%s:%d%s", protocol, c.host, c.port, c.path)
 }
 
-func (c *Client) logger() *log.Entry {
-	return log.WithField("broker", c.brokerURL(secureProtocol))
+func (c *Client) logger() *logrus.Entry {
+	return logger.GetLogger().WithField("broker", c.brokerURL(secureProtocol))
 }
 
 func (c *Client) onConnect() MQTT.OnConnectHandler {
