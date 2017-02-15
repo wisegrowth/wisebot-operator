@@ -129,16 +129,11 @@ func (ss *ServiceStore) Update(name string) error {
 func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
 	s := newService(name, c, r)
 
-	// Is this correct?
 	ss.mu.RLock()
-	list := ss.list
-	ss.mu.RUnlock()
-
-	if list == nil {
-		ss.mu.Lock()
+	if ss.list == nil {
 		ss.list = make(map[string]*Service)
-		ss.mu.Unlock()
 	}
+	ss.mu.RUnlock()
 
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
