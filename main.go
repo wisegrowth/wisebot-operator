@@ -101,7 +101,11 @@ func main() {
 	check(err)
 
 	// ----- Start application
-	check(services.Start())
+	if err := services.Start(); err != nil {
+		services.Stop()
+		check(err)
+	}
+
 	check(client.Connect())
 
 	// ----- Subscribe to MQTT topics
