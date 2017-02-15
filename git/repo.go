@@ -66,7 +66,7 @@ const (
 // If no updates are found, it returns the actual head SHA.
 func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	log := r.logger()
-	log.Info("Updating...")
+	log.Info("Updating")
 
 	fetch := exec.Command("git", "fetch", "origin")
 	fetch.Dir = r.Path
@@ -94,7 +94,7 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	updateCmd.Dir = r.Path
 
 	log = log.WithFields(logrus.Fields{"new_version": oHead})
-	log.Info("Downloading...")
+	log.Info("Downloading")
 	if err := updateCmd.Run(); err != nil {
 		return "", err
 	}
@@ -106,7 +106,7 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	cleanCmd := exec.Command("git", "clean", "-f", "-d", "-X")
 	cleanCmd.Dir = r.Path
 
-	log.Info("Cleaning...")
+	log.Info("Cleaning")
 	if err := cleanCmd.Run(); err != nil {
 		return "", err
 	}
@@ -149,7 +149,7 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 		updated = true
 		logger := r.logger()
 
-		logger.Info("Clonning...")
+		logger.Info("Clonning")
 		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote, r.Path)
 		clone.Dir = path.Dir(r.Path)
 
