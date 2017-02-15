@@ -132,11 +132,10 @@ func (r *Repo) runPostReceiveHooks() error {
 	return nil
 }
 
-// Bootstrap clones the repo if it not exists and runs the
-// post-receive hooks. If there is no errors, it updates the
-// repository current head sha. If the repo is already cloned,
-// the function receives an arguments that indicates if we want
-// to update (git pull) the repo or not.
+// Bootstrap clones the repo if it not exists and runs the post-receive hooks.
+// If there is no errors, it updates the repository current head sha. If the
+// repo is already cloned, the function receives an arguments that indicates
+// if we want to update (git pull) the repo or not.
 func (r *Repo) Bootstrap(wantToUpdate bool) error {
 	updated := false
 
@@ -149,7 +148,7 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 		logger := r.logger()
 
 		logger.Info("Clonning...")
-		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote)
+		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote, r.Path)
 		clone.Dir = path.Dir(r.Path)
 
 		if err := clone.Run(); err != nil {
@@ -199,8 +198,8 @@ func (r *Repo) updateHead() error {
 	return nil
 }
 
-// AddPostReceiveHooks receives one or multiple PostReceiveHooks
-// and appends them to the repo `postReceiveHooks` private attribute.
+// AddPostReceiveHooks receives one or multiple PostReceiveHooks and appends
+// them to the repo `postReceiveHooks` private attribute.
 func (r *Repo) AddPostReceiveHooks(handlers ...PostReceiveHook) {
 	r.postReceiveHooks = append(r.postReceiveHooks, handlers...)
 }
@@ -209,8 +208,8 @@ func sanitizeOutput(b []byte) string {
 	return string(bytes.TrimSpace(b))
 }
 
-// NpmInstallHook is a PostReceiveHook preset that runs
-// a `npm install --production` command.
+// NpmInstallHook is a PostReceiveHook preset that runs a
+// `npm install --production` command.
 func NpmInstallHook(r *Repo) error {
 	npmInstall := exec.Command("npm", "install", "--production")
 	npmInstall.Dir = r.Path
@@ -219,8 +218,7 @@ func NpmInstallHook(r *Repo) error {
 	return npmInstall.Run()
 }
 
-// NpmPruneHook is a PostReceiveHook preset that runs
-// a `npm prune` command.
+// NpmPruneHook is a PostReceiveHook preset that runs a `npm prune` command.
 func NpmPruneHook(r *Repo) error {
 	prune := exec.Command("npm", "prune")
 	prune.Dir = r.Path
