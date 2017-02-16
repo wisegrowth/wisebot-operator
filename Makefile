@@ -1,12 +1,13 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
 PI_IP=192.168.8.103
+SENTRY_DSN=""
 
 GO ?= go
 
 pi: clean
 	@echo "[pi] Building..."
-	@GOOS=linux GOARM=7 GOARCH=arm $(GO) build -o $(BIN)
+	@GOOS=linux GOARM=7 GOARCH=arm $(GO) build -o $(BIN) -ldflags "-X main.sentryDSN=$(SENTRY_DSN)"
 
 build b: clean
 	@echo "[pi] Building..."
