@@ -5,16 +5,20 @@ import (
 	"html/template"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
 // Network represents an available wifi network.
 type Network struct {
-	Address    string `json:"address"`
-	ESSID      string `json:"essid"`
-	Encryption string `json:"encryption"`
-	Password   string `json:"-"`
+	Address     string `json:"address"`
+	ESSID       string `json:"essid"`
+	Encryption  string `json:"encryption"`
+	Quality     int    `json:"quality"`
+	SignalLevel int    `json:"signal_level"`
+	Password    string `json:"-"`
 }
 
 // IsWPA returns true if the encryption is WPA.
@@ -22,14 +26,22 @@ func (n *Network) IsWPA() bool {
 	return strings.Contains(n.Encryption, "WPA")
 }
 
-// AvailableNetworks return an array of available wifi networks.
+var (
+	qualityRegexGroup     = regexp.MustCompile("Quality=(\\d+)/100")
+	signalLevelRegexGroup = regexp.MustCompile("Signal\\s+level=(\\d+)/100")
+)
+
+// AvailableNetworks return an array of unique available wifi networks.
+// if there is more than one network with the same ESSID, it just considers the
+// one with the higher signal level value.
 func AvailableNetworks() ([]*Network, error) {
 	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
 	if err != nil {
 		return nil, err
 	}
 
-	var networks []*Network
+	networks := map[string]*Network{}
+
 	cells := strings.Split(string(out), "Cell")
 	for _, cell := range cells {
 		lines := strings.Split(cell, "\n")
@@ -50,14 +62,46 @@ func AvailableNetworks() ([]*Network, error) {
 				i := strings.Index(line, "/")
 				n.Encryption = strings.TrimSpace(line[i+1:])
 			}
+
+			if strings.Contains(line, "Quality") {
+				match := qualityRegexGroup.FindStringSubmatch(line)
+				if len(match) > 0 {
+					val, err := strconv.Atoi(match[1])
+					if err != nil {
+						return nil, err
+					}
+					n.Quality = val
+				}
+				match = signalLevelRegexGroup.FindStringSubmatch(line)
+				if len(match) > 0 {
+					val, err := strconv.Atoi(match[1])
+					if err != nil {
+						return nil, err
+					}
+					n.SignalLevel = val
+				}
+				i := strings.Index(line, "/")
+				n.Encryption = strings.TrimSpace(line[i+1:])
+			}
 		}
 
 		if len(n.ESSID) != 0 {
-			networks = append(networks, n)
+			if savedNetwork, ok := networks[n.ESSID]; ok {
+				if savedNetwork.SignalLevel < n.SignalLevel {
+					networks[n.ESSID] = n
+				}
+			} else {
+				networks[n.ESSID] = n
+			}
 		}
 	}
 
-	return networks, nil
+	var res []*Network
+	for _, n := range networks {
+		res = append(res, n)
+	}
+
+	return res, nil
 }
 
 const (
