@@ -111,23 +111,27 @@ func AvailableNetworks() ([]*Network, error) {
 	return res, nil
 }
 
-func prepareInterfaceFileForAPMode() error {
-	log := logger.GetLogger().WithField("function", "prepareInterfaceFileForAPMode")
+// SetupWifi configures the raspberry pi wifi network.
+func SetupWifi(n *Network) error {
+	log := logger.GetLogger().WithFields(logrus.Fields{
+		"file":     interfacesPath,
+		"function": "SetupWifi",
+	})
 
-	f, err := os.OpenFile(interfacesPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	log.Debug("Open file")
+	f, err := os.OpenFile(interfacesPath, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 
-	data := []byte(interfaceAPTemplateString)
-	log.Debug("Writing interface file")
-	for t := 0; t < len(data); t++ {
-		n, err := f.Write(data)
-		t += n
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
 
-		if err != nil {
-			return err
-		}
+	log.Debug("Write config")
+	if err := wifiConfigTemplate.Execute(f, n); err != nil {
+		f.Close()
+		return err
 	}
 
 	if err := f.Sync(); err != nil {
@@ -138,108 +142,7 @@ func prepareInterfaceFileForAPMode() error {
 		return err
 	}
 
-	return nil
-}
-
-// SetAPMode sets the raspberry wlan0 interface as an Access Point.
-func SetAPMode() error {
-	if err := prepareInterfaceFileForAPMode(); err != nil {
-		return err
-	}
-
-	authoritative := true
-	if err := updateDHCPConfig(authoritative); err != nil {
-		return err
-	}
-
-	if err := restartWifi(); err != nil {
-		return err
-	}
-
-	log := logger.GetLogger().WithField("function", "SetAPMode")
-	log.Debug("Running: sudo service hostapd restart")
-	hostapdcmd := exec.Command("sudo", "service", "hostapd", "restart")
-
-	if err := hostapdcmd.Run(); err != nil {
-		return err
-	}
-
-	log.Debug("sudo service isc-dhcp-server restart")
-	iscservercmd := exec.Command("sudo", "service", "isc-dhcp-server", "restart")
-
-	if err := iscservercmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func restartWifi() error {
-	log := logger.GetLogger().WithField("function", "restartWifi")
-
-	log.Debug("Running: sudo ifdown wlan0")
-	ifdown := exec.Command("sudo", "ifdown", "wlan0")
-	if err := ifdown.Run(); err != nil {
-		return err
-	}
-
-	log.Debug("Running: sudo ifup wlan0")
-	ifup := exec.Command("sudo", "ifup", "wlan0")
-
-	return ifup.Run()
-}
-
-func updateDHCPConfig(authoritative bool) error {
-	log := logger.GetLogger().WithField("function", "updateDHCPConfig")
-
-	log.Debug("Open file")
-	file, err := os.OpenFile(dhcpdConfigPath, os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	defer file.Sync()
-
-	data := &struct {
-		Authoritative bool
-	}{authoritative}
-
-	log.Debug("Write config")
-	if err := dhcpdConfigTemplate.Execute(file, data); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// SetupWifi configures the raspberry pi wifi network.
-func SetupWifi(n *Network) error {
-	log := logger.GetLogger().WithFields(logrus.Fields{
-		"file":     interfacesPath,
-		"function": "SetupWifi",
-	})
-
-	log.Debug("Open file")
-	file, err := os.OpenFile(interfacesPath, os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-
-	log.Debug("Write config")
-	if err := wifiConfigTemplate.Execute(file, n); err != nil {
-		file.Close()
-		return err
-	}
-
-	if err := file.Sync(); err != nil {
-		return err
-	}
-
-	if err := file.Close(); err != nil {
-		return err
-	}
-
-	if err := restartWifi(); err != nil {
+	if err := restartNetworkInterface(); err != nil {
 		return err
 	}
 
@@ -265,6 +168,114 @@ func IsConnected() (bool, error) {
 	}
 
 	return true, nil
+}
+
+// SetAPMode sets the raspberry wlan0 interface as an Access Point.
+func SetAPMode() error {
+	if err := prepareInterfaceFileForAPMode(); err != nil {
+		return err
+	}
+
+	authoritative := true
+	if err := updateDHCPConfig(authoritative); err != nil {
+		return err
+	}
+
+	if err := restartNetworkInterface(); err != nil {
+		return err
+	}
+
+	log := logger.GetLogger().WithField("function", "SetAPMode")
+	log.Debug("Running: sudo service hostapd restart")
+	hostapdcmd := exec.Command("sudo", "service", "hostapd", "restart")
+
+	if err := hostapdcmd.Run(); err != nil {
+		return err
+	}
+
+	log.Debug("sudo service isc-dhcp-server restart")
+	iscservercmd := exec.Command("sudo", "service", "isc-dhcp-server", "restart")
+
+	if err := iscservercmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func prepareInterfaceFileForAPMode() error {
+	log := logger.GetLogger().WithField("function", "prepareInterfaceFileForAPMode")
+
+	f, err := os.OpenFile(interfacesPath, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+
+	log.Debug("Writing interface file")
+	if _, err := f.WriteString(interfaceAPTemplateString); err != nil {
+		return err
+	}
+
+	if err := f.Sync(); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func restartNetworkInterface() error {
+	log := logger.GetLogger().WithField("function", "restartNetworkInterface")
+
+	log.Debug("Running: sudo ifdown wlan0")
+	ifdown := exec.Command("sudo", "ifdown", "wlan0")
+	if err := ifdown.Run(); err != nil {
+		return err
+	}
+
+	log.Debug("Running: sudo ifup wlan0")
+	ifup := exec.Command("sudo", "ifup", "wlan0")
+
+	return ifup.Run()
+}
+
+func updateDHCPConfig(authoritative bool) error {
+	log := logger.GetLogger().WithField("function", "updateDHCPConfig")
+
+	log.Debug("Open file")
+	f, err := os.OpenFile(dhcpdConfigPath, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+
+	if err := f.Sync(); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	data := &struct {
+		Authoritative bool
+	}{authoritative}
+
+	log.Debug("Write config")
+	if err := dhcpdConfigTemplate.Execute(f, data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // waitForNetwork just performs a ping command to google's DNS server to check
