@@ -80,6 +80,14 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+// Disconnect proxies the function call to the MQTT.Client, but first checks if
+// the client is not nil.
+func (c *Client) Disconnect(quiesce uint) {
+	if c.Client != nil {
+		c.Client.Disconnect(quiesce)
+	}
+}
+
 // Subscribe is a convenience function that proxies
 // the function call to MQTT.Client.Subscribe in order
 // to subscribe to  an specific topic and MQTT.MessageHandler.
