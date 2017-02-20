@@ -100,6 +100,7 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 	err := rasp.SetupWifi(network)
 	if err == nil {
 		log.Debug("Wifi Connected")
+		// TODO: bootstrap services if it was in ap mode!
 		w.WriteHeader(http.StatusOK)
 		return
 	}
