@@ -7,18 +7,13 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
-type healthzResponse struct {
-	Data ServiceStore `json:"data"`
-}
-
 func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
 	logger := log.WithField("topic", topic)
 	logger.Info("Message received")
 
-	res := &healthzResponse{Data: services}
-	responseBytes, _ := json.Marshal(res)
+	responseBytes, _ := json.Marshal(newHealthResponse())
 
 	token := client.Publish(topic+":response", byte(1), false, responseBytes)
 	if token.Wait() && token.Error() != nil {
@@ -28,8 +23,7 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &healthzResponse{Data: services}
-		responseBytes, _ := json.Marshal(res)
+		responseBytes, _ := json.Marshal(newHealthResponse())
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
 		if token.Wait() && token.Error() != nil {
@@ -61,8 +55,7 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &healthzResponse{Data: services}
-		responseBytes, _ := json.Marshal(res)
+		responseBytes, _ := json.Marshal(newHealthResponse())
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
 		if token.Wait() && token.Error() != nil {
@@ -94,8 +87,7 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer func() {
-		res := &healthzResponse{Data: services}
-		responseBytes, _ := json.Marshal(res)
+		responseBytes, _ := json.Marshal(newHealthResponse())
 
 		token := client.Publish(healthzPublishableTopic+":response", byte(1), false, responseBytes)
 		if token.Wait() && token.Error() != nil {
