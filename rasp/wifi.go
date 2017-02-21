@@ -2,7 +2,6 @@ package rasp
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,61 +16,29 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
-// Mode represents current wlan0 interface mode.
-type Mode uint
-
-// List of wlan0 interface modes.
 const (
-	APMode Mode = iota
-	WifiMode
-
 	apModeESSID = "Wisebot"
+
+	apInterface   = "wlan0"
+	wifiInterface = "wlan1"
 )
 
 var (
-	currentMode Mode
-
 	onOSX bool
-
-	modeNames = map[Mode]string{
-		APMode:   "ap",
-		WifiMode: "wifi",
-	}
 )
-
-func (m Mode) String() string {
-	return modeNames[m]
-}
 
 func init() {
 	onOSX = (runtime.GOOS == "darwin")
-
-	onAPMode, err := OnAPMode()
-	if err != nil {
-		logger.GetLogger().Fatal(err)
-	}
-
-	if onAPMode {
-		currentMode = APMode
-	} else {
-		currentMode = WifiMode
-	}
 }
 
-// CurrentMode returns current wlan0 status. It can return either APMode or
-// WifiMode.
-func CurrentMode() Mode {
-	return currentMode
-}
-
-// OnAPMode check if the wlan0 interface is in AP Mode, returns true if is
-// enabled, or false if it isn't.
-func OnAPMode() (bool, error) {
+// IsAPModeActive check if the `apInterface` interface is in AP Mode, returns
+// true if is enabled, or false if it isn't.
+func IsAPModeActive() (bool, error) {
 	if onOSX {
 		return false, nil
 	}
 
-	out, err := exec.Command("iwconfig", "wlan0").Output()
+	out, err := exec.Command("iwconfig", apInterface).Output()
 	if err != nil {
 		return false, err
 	}
@@ -99,21 +66,7 @@ type Network struct {
 	Encryption  string `json:"encryption"`
 	Quality     int    `json:"quality"`
 	SignalLevel int    `json:"signal_level"`
-	Password    string `json:"password"`
-}
-
-type rawNetwork struct {
-	*Network
-	Password string `json:"-"`
-}
-
-// MarshalJSON implements the json marshal interface. The intention of this
-// method is to omit the password when marshaling the network but to consider
-// it when unmarshaling.
-func (n *Network) MarshalJSON() ([]byte, error) {
-	payload := &rawNetwork{Network: n}
-
-	return json.Marshal(payload)
+	Password    string `json:"password,omitempty"`
 }
 
 // IsWPA returns true if the encryption is WPA.
@@ -125,7 +78,7 @@ func (n *Network) IsWPA() bool {
 // if there is more than one network with the same ESSID, it just considers the
 // one with the higher signal level value.
 func AvailableNetworks() ([]*Network, error) {
-	out, err := exec.Command("sudo", "iwlist", "wlan0", "scan").Output()
+	out, err := exec.Command("sudo", "iwlist", apInterface, "scan").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +123,6 @@ func AvailableNetworks() ([]*Network, error) {
 					}
 					n.SignalLevel = val
 				}
-				i := strings.Index(line, "/")
-				n.Encryption = strings.TrimSpace(line[i+1:])
 			}
 		}
 
@@ -226,7 +177,7 @@ func SetupWifi(n *Network) error {
 	}
 
 	log.Debug("Restarting Network")
-	if err := restartNetworkInterface(); err != nil {
+	if err := restartNetworkInterface(wifiInterface); err != nil {
 		return ErrNoWifi
 	}
 
@@ -240,10 +191,7 @@ func SetupWifi(n *Network) error {
 		return ErrNoWifi
 	}
 
-	currentMode = WifiMode
-
-	authoritative := false
-	return updateDHCPConfig(authoritative)
+	return nil
 }
 
 // IsConnected executes a ping command in order to check wether the device is
@@ -266,22 +214,22 @@ func IsConnected() (bool, error) {
 	return true, nil
 }
 
-// SetAPMode sets the raspberry wlan0 interface as an Access Point.
-func SetAPMode() error {
-	if err := prepareInterfaceFileForAPMode(); err != nil {
+// ActivateAPMode restarts the raspberry `apInterface` interface, hostapd
+// and isc-dhcp-server services. If the interface is already in AP Mode, it just
+// restarts the isc-dhcp-server.
+func ActivateAPMode() error {
+	log := logger.GetLogger().WithField("function", "ActivateAPMode")
+	iscservercmd := exec.Command("sudo", "service", "isc-dhcp-server", "restart")
+
+	if isActive, _ := IsAPModeActive(); isActive {
+		log.Debug("sudo service isc-dhcp-server restart")
+		return iscservercmd.Run()
+	}
+
+	if err := restartNetworkInterface(apInterface); err != nil {
 		return err
 	}
 
-	authoritative := true
-	if err := updateDHCPConfig(authoritative); err != nil {
-		return err
-	}
-
-	if err := restartNetworkInterface(); err != nil {
-		return err
-	}
-
-	log := logger.GetLogger().WithField("function", "SetAPMode")
 	log.Debug("Running: sudo service hostapd restart")
 	hostapdcmd := exec.Command("sudo", "service", "hostapd", "restart")
 
@@ -290,86 +238,28 @@ func SetAPMode() error {
 	}
 
 	log.Debug("sudo service isc-dhcp-server restart")
-	iscservercmd := exec.Command("sudo", "service", "isc-dhcp-server", "restart")
-
-	if err := iscservercmd.Run(); err != nil {
-		return err
-	}
-
-	currentMode = APMode
-
-	return nil
+	return iscservercmd.Run()
 }
 
-func prepareInterfaceFileForAPMode() error {
-	log := logger.GetLogger().WithField("function", "prepareInterfaceFileForAPMode")
-
-	f, err := os.OpenFile(interfacesPath, os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-
-	if err := f.Truncate(0); err != nil {
-		return err
-	}
-
-	log.Debug("Writing interface file")
-	if _, err := f.WriteString(interfaceAPTemplateString); err != nil {
-		return err
-	}
-
-	if err := f.Sync(); err != nil {
-		return err
-	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	return nil
+// DeactivateAPMode deactivates hostapd service
+func DeactivateAPMode() error {
+	log := logger.GetLogger().WithField("function", "DeactivateAPMode")
+	log.Debug("Running: sudo service hostapd stop")
+	hostapdcmd := exec.Command("sudo", "service", "hostapd", "stop")
+	return hostapdcmd.Run()
 }
 
-func restartNetworkInterface() error {
+func restartNetworkInterface(netInterface string) error {
 	log := logger.GetLogger().WithField("function", "restartNetworkInterface")
 
-	log.Debug("Running: sudo ifdown wlan0")
-	ifdown := exec.Command("sudo", "ifdown", "wlan0")
+	log.Debug("Running: sudo ifdown " + netInterface)
+	ifdown := exec.Command("sudo", "ifdown", netInterface)
 	ifdown.Run()
 
-	log.Debug("Running: sudo ifup wlan0")
-	ifup := exec.Command("sudo", "ifup", "wlan0")
+	log.Debug("Running: sudo ifup " + netInterface)
+	ifup := exec.Command("sudo", "ifup", netInterface)
 
 	return ifup.Run()
-}
-
-func updateDHCPConfig(authoritative bool) error {
-	log := logger.GetLogger().WithField("function", "updateDHCPConfig")
-
-	log.Debug("Open file")
-	f, err := os.OpenFile(dhcpdConfigPath, os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	if err := f.Truncate(0); err != nil {
-		return err
-	}
-
-	if err := f.Sync(); err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	data := &struct {
-		Authoritative bool
-	}{authoritative}
-
-	log.Debug("Write config")
-	if err := dhcpdConfigTemplate.Execute(f, data); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // waitForNetwork just performs a ping command to google's DNS server to check
