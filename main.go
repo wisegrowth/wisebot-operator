@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -108,23 +109,20 @@ func main() {
 		}
 	}()
 
+	log.Debug("Activating APMode")
+	check(rasp.ActivateAPMode())
+
 	log.Debug("Checking wifi connection")
 	isConnected, err := rasp.IsConnected()
 	check(err)
 
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	if isConnected {
-		log.Debug("Deactivating AP Mode")
-		rasp.DeactivateAPMode()
-
 		log.Debug("Bootstraping and starting services")
 		const update = true
 		check(bootstrapServices(update))
 		check(bootstrapMQTTClient())
 		log.Debug("Bootstraping done")
-	} else {
-		log.Debug("Activating APMode")
-		check(rasp.ActivateAPMode())
 	}
 
 	// ----- Gracefully shutdown
@@ -198,6 +196,7 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
+		debug.PrintStack()
 		logger.GetLogger().Fatal(err)
 	}
 }
