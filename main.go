@@ -12,7 +12,6 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
-	log "github.com/mgutz/logxi/v1"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -155,6 +154,7 @@ func listenInterrupt(quit chan struct{}) {
 	go func() {
 		<-c
 
+		log := logger.GetLogger()
 		if err := httpServer.Shutdown(nil); err != nil {
 			log.Error(err.Error())
 		}
