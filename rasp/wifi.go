@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
@@ -218,19 +217,19 @@ func IsConnected() (bool, error) {
 
 // waitForNetwork just performs a ping command to google's DNS server to check
 // if the network is up or down.
-// The command will execute for 40 seconds and it will sleep 1 second before
-// trying again if the ping command fails.
+// This function will ping the DNS server with a dealine of 3 seconds and it'll
+// try to hit the servers a maximum of 15 times. If at any point the ping
+// command is successful, it will return a nil error to indicate that is
+// connected to the internet.
 // The ping command ignores the exec.ExitError errors since this tell us that
 // the network is up or down, all other errors are returned since are
 // unexpected errors.
-// It returns a nil error if the device is connected to the internet.
 func waitForNetwork() error {
-	sleepDuration := time.Second * 1
 	log := logger.GetLogger().WithField("function", "waitForNetwork")
 
 	tries := 0
-	for tries < 40 {
-		ping := exec.Command("ping", "-w", "1", "8.8.8.8")
+	for tries < 15 {
+		ping := exec.Command("ping", "-w", "3", "8.8.8.8")
 
 		log.Debug("Pinging")
 		if err := ping.Run(); err != nil {
@@ -242,8 +241,6 @@ func waitForNetwork() error {
 			return nil
 		}
 
-		log.Debug("Sleep 1 second")
-		time.Sleep(sleepDuration)
 		tries++
 	}
 	return ErrNoWifi
