@@ -108,22 +108,23 @@ func main() {
 		}
 	}()
 
-	apmode, err := rasp.OnAPMode()
+	log.Debug("Checking wifi connection")
+	isConnected, err := rasp.IsConnected()
 	check(err)
-	log.Info(fmt.Sprintf("Ap Mode: %v", apmode))
-	if !apmode {
-		log.Debug("Checking wifi connection")
-		isConnected, err := rasp.IsConnected()
-		check(err)
 
-		log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
-		if isConnected {
-			log.Debug("Bootstraping and starting services")
-			const update = true
-			check(bootstrapServices(update))
-			check(bootstrapMQTTClient())
-			log.Debug("Bootstraping done")
-		}
+	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
+	if isConnected {
+		log.Debug("Deactivating AP Mode")
+		rasp.DeactivateAPMode()
+
+		log.Debug("Bootstraping and starting services")
+		const update = true
+		check(bootstrapServices(update))
+		check(bootstrapMQTTClient())
+		log.Debug("Bootstraping done")
+	} else {
+		log.Debug("Activating APMode")
+		check(rasp.ActivateAPMode())
 	}
 
 	// ----- Gracefully shutdown
