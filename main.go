@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -9,12 +10,13 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/logger"
+	"github.com/WiseGrowth/wisebot-operator/rasp"
+	log "github.com/mgutz/logxi/v1"
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/prometheus/common/log"
 )
 
 var (
-	services ServiceStore
+	services *ServiceStore
 
 	sentryDSN string
 )
@@ -42,10 +44,15 @@ var (
 	wisebotConfig   *config
 
 	healthzPublishableTopic string
+
+	mqttClient *iot.Client
+	httpServer *http.Server
 )
 
 func init() {
 	var err error
+	services = new(ServiceStore)
+
 	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
 	check(err)
 
@@ -54,18 +61,26 @@ func init() {
 
 	// ----- Load wisebot config
 	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
-	if err == errNoConfigFile {
-		log.Errorf("The %q config file does not exists", wisebotConfigExpandedPath)
-		os.Exit(1)
-	}
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 
-	logger.Init(wisebotConfig.WisebotID, sentryDSN)
+	check(logger.Init(wisebotConfig.WisebotID, sentryDSN))
+
+	// ----- Initialize MQTT client
+	cert, err := wisebotConfig.getTLSCertificate()
+	check(err)
+
+	mqttClient, err = iot.NewClient(
+		iot.SetHost(iotHost),
+		iot.SetCertificate(*cert),
+	)
+	check(err)
 }
 
 func main() {
+	log := logger.GetLogger()
+
 	// ----- Initialize git repos
 	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
@@ -74,9 +89,6 @@ func main() {
 		git.NpmPruneHook,
 	)
 
-	const update = false
-	check(wisebotCoreRepo.Bootstrap(update))
-
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
 		nil,
@@ -84,52 +96,103 @@ func main() {
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
-	// TODO: add ble command
 
-	// Append services to global store
+	// ----- Append services to global store
 	services.Save(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
 
-	// ----- Initialize MQTT connection
-	cert, err := wisebotConfig.getTLSCertificate()
-	check(err)
+	httpServer = NewHTTPServer()
+	log.Info("Running server on: " + httpServer.Addr)
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error(err)
+		}
+	}()
 
-	client, err := iot.NewClient(
-		iot.SetHost(iotHost),
-		iot.SetCertificate(*cert),
-	)
+	apmode, err := rasp.OnAPMode()
 	check(err)
-
-	// ----- Start application
-	if err := services.Start(); err != nil {
-		services.Stop()
+	log.Info(fmt.Sprintf("Ap Mode: %v", apmode))
+	if !apmode {
+		log.Debug("Checking wifi connection")
+		isConnected, err := rasp.IsConnected()
 		check(err)
+
+		log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
+		if isConnected {
+			log.Debug("Bootstraping and starting services")
+			const update = true
+			check(bootstrapServices(update))
+			check(bootstrapMQTTClient())
+			log.Debug("Bootstraping done")
+		}
 	}
-
-	check(client.Connect())
-
-	// ----- Subscribe to MQTT topics
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler))
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler))
-
-	check(client.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler))
 
 	// ----- Gracefully shutdown
 	quit := make(chan struct{})
+	listenInterrupt(quit)
+	<-quit
+	log.Info("Done")
+}
+
+func bootstrapServices(update bool) error {
+	log := logger.GetLogger()
+
+	log.Debug("Bootstraping repos")
+	if err := services.Bootstrap(update); err != nil {
+		return err
+	}
+
+	log.Debug("Starting commands")
+	if err := services.Start(); err != nil {
+		services.Stop()
+		return err
+	}
+
+	return nil
+}
+
+func listenInterrupt(quit chan struct{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		client.Disconnect(250)
+
+		if err := httpServer.Shutdown(nil); err != nil {
+			log.Error(err.Error())
+		}
+
+		mqttClient.Disconnect(250)
 		log.Info("[MQTT] Disconnected")
 
 		services.Stop()
 
-		// rasp.TurnOffPins()
 		quit <- struct{}{}
 	}()
-	<-quit
-	log.Info("Done")
+}
+
+func bootstrapMQTTClient() error {
+	log := logger.GetLogger()
+
+	log.Debug("Connecting to MQTT Broker")
+	if err := mqttClient.Connect(); err != nil {
+		return err
+	}
+
+	log.Debug("Subscribing topics")
+	// ----- Subscribe to MQTT topics
+	if err := mqttClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler); err != nil {
+		return err
+	}
+	if err := mqttClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler); err != nil {
+		return err
+	}
+	if err := mqttClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler); err != nil {
+		return err
+	}
+	if err := mqttClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func check(err error) {

@@ -1,10 +1,14 @@
 package rasp
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +16,71 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
+
+// Mode represents current wlan0 interface mode.
+type Mode uint
+
+// List of wlan0 interface modes.
+const (
+	APMode Mode = iota
+	WifiMode
+
+	apModeESSID = "Wisebot"
+)
+
+var (
+	currentMode Mode
+
+	onOSX bool
+
+	modeNames = map[Mode]string{
+		APMode:   "ap",
+		WifiMode: "wifi",
+	}
+)
+
+func (m Mode) String() string {
+	return modeNames[m]
+}
+
+func init() {
+	onOSX = (runtime.GOOS == "darwin")
+
+	onAPMode, err := OnAPMode()
+	if err != nil {
+		logger.GetLogger().Fatal(err)
+	}
+
+	if onAPMode {
+		currentMode = APMode
+	} else {
+		currentMode = WifiMode
+	}
+}
+
+// CurrentMode returns current wlan0 status. It can return either APMode or
+// WifiMode.
+func CurrentMode() Mode {
+	return currentMode
+}
+
+// OnAPMode check if the wlan0 interface is in AP Mode, returns true if is
+// enabled, or false if it isn't.
+func OnAPMode() (bool, error) {
+	if onOSX {
+		return false, nil
+	}
+
+	out, err := exec.Command("iwconfig", "wlan0").Output()
+	if err != nil {
+		return false, err
+	}
+
+	search := fmt.Sprintf("ESSID:\"%s\"", apModeESSID)
+	onmode := bytes.Contains(out, []byte(search))
+
+	return onmode, nil
+}
 
 // Wifi errors
 var (
@@ -30,7 +99,21 @@ type Network struct {
 	Encryption  string `json:"encryption"`
 	Quality     int    `json:"quality"`
 	SignalLevel int    `json:"signal_level"`
-	Password    string `json:"-"`
+	Password    string `json:"password"`
+}
+
+type rawNetwork struct {
+	*Network
+	Password string `json:"-"`
+}
+
+// MarshalJSON implements the json marshal interface. The intention of this
+// method is to omit the password when marshaling the network but to consider
+// it when unmarshaling.
+func (n *Network) MarshalJSON() ([]byte, error) {
+	payload := &rawNetwork{Network: n}
+
+	return json.Marshal(payload)
 }
 
 // IsWPA returns true if the encryption is WPA.
@@ -142,13 +225,22 @@ func SetupWifi(n *Network) error {
 		return err
 	}
 
+	log.Debug("Restarting Network")
 	if err := restartNetworkInterface(); err != nil {
+		return ErrNoWifi
+	}
+
+	log.Debug("Checking connection with ping")
+	connected, err := IsConnected()
+	if err != nil {
 		return err
 	}
 
-	if err := waitForNetwork(); err != nil {
-		return err
+	if !connected {
+		return ErrNoWifi
 	}
+
+	currentMode = WifiMode
 
 	authoritative := false
 	return updateDHCPConfig(authoritative)
@@ -157,14 +249,18 @@ func SetupWifi(n *Network) error {
 // IsConnected executes a ping command in order to check wether the device is
 // connected to the network.
 func IsConnected() (bool, error) {
+	if onOSX {
+		return true, nil
+	}
+
 	ping := exec.Command("ping", "-t", "20", "-w", "1", "8.8.8.8")
 
 	if err := ping.Run(); err != nil {
 		// Ignore exit errors
-		if _, ok := (err).(*exec.ExitError); !ok {
+		if _, ok := (err).(*exec.ExitError); ok {
 			return false, nil
 		}
-		return false, err // exit error
+		return false, err
 	}
 
 	return true, nil
@@ -199,6 +295,8 @@ func SetAPMode() error {
 	if err := iscservercmd.Run(); err != nil {
 		return err
 	}
+
+	currentMode = APMode
 
 	return nil
 }
@@ -236,9 +334,7 @@ func restartNetworkInterface() error {
 
 	log.Debug("Running: sudo ifdown wlan0")
 	ifdown := exec.Command("sudo", "ifdown", "wlan0")
-	if err := ifdown.Run(); err != nil {
-		return err
-	}
+	ifdown.Run()
 
 	log.Debug("Running: sudo ifup wlan0")
 	ifup := exec.Command("sudo", "ifup", "wlan0")
@@ -262,9 +358,7 @@ func updateDHCPConfig(authoritative bool) error {
 		return err
 	}
 
-	if err := f.Close(); err != nil {
-		return err
-	}
+	defer f.Close()
 
 	data := &struct {
 		Authoritative bool

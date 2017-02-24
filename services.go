@@ -38,9 +38,20 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Update proxies function to the its command
+// Update proxies function to the its command.
 func (s *Service) Update() (bool, error) {
 	return s.cmd.Update(s.repo)
+}
+
+// Bootstrap proxies function to the its repo.
+func (s *Service) Bootstrap(update bool) error {
+	if err := s.repo.Bootstrap(update); err != nil {
+		return err
+	}
+
+	s.cmd.Version = s.repo.CurrentHead()
+
+	return nil
 }
 
 // ServiceStore represents a set of commands.
@@ -53,17 +64,17 @@ type ServiceStore struct {
 
 // MarshalJSON implements json marshal interface
 func (ss *ServiceStore) MarshalJSON() ([]byte, error) {
-	services := make([]*Service, len(ss.list))
+	svcs := make([]*Service, len(ss.list))
+
+	i := 0
 	for _, svc := range ss.list {
 		ss.mu.RLock()
-		services = append(services, svc)
+		svcs[i] = svc
+		i++
 		ss.mu.RUnlock()
 	}
 
-	payload := struct {
-		Data []*Service `json:"data"`
-	}{services}
-	return json.Marshal(payload)
+	return json.Marshal(svcs)
 }
 
 func (s *Service) logger() *log.Entry {
@@ -83,6 +94,20 @@ func (ss *ServiceStore) Find(name string) (svc *Service, ok bool) {
 
 	svc, ok = ss.list[name]
 	return svc, ok
+}
+
+// Bootstrap loops each service in the list and calls the bootstrap function.
+func (ss *ServiceStore) Bootstrap(update bool) error {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
+	for _, svc := range ss.list {
+		if err := svc.Bootstrap(update); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Update search the given command in the map and runs its
@@ -138,6 +163,7 @@ func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
 
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
+
 	ss.list[s.Name] = s
 }
 
