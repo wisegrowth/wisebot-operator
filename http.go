@@ -31,17 +31,17 @@ type healthzMetaResponse struct {
 }
 
 type wifiStatus struct {
-	IsConnected    bool `json:"is_connected"`
-	IsAPModeActive bool `json:"is_ap_mode_active"`
+	IsConnected bool   `json:"is_connected"`
+	ESSID       string `json:"essid"`
 }
 
 func newHealthResponse() *healthResponse {
 	isConnected, _ := rasp.IsConnected()
-	isAPModeActive, _ := rasp.IsAPModeActive()
+	currentESSID, _ := rasp.CurrentConfiguredNetworkESSID()
 
 	meta := new(healthzMetaResponse)
 	meta.WifiStatus.IsConnected = isConnected
-	meta.WifiStatus.IsAPModeActive = isAPModeActive
+	meta.WifiStatus.ESSID = currentESSID
 
 	return &healthResponse{
 		Data: services,
@@ -74,24 +74,6 @@ func getNetworksHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		getLogger(r).Error(err)
 	}
-}
-
-func activateAPModeHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if err := rasp.ActivateAPMode(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-}
-
-func deactivateAPModeHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if err := rasp.DeactivateAPMode(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
 }
 
 func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -129,8 +111,6 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 // GET /healthz
 //
 // GET    /networks
-// POST   /network/ap-mode/activate
-// POST   /network/ap-mode/deactivate
 // PATCH  /network
 //
 func NewHTTPServer() *http.Server {
@@ -139,9 +119,6 @@ func NewHTTPServer() *http.Server {
 	router.GET("/healthz", healthzHTTPHandler)
 
 	router.GET("/networks", getNetworksHTTPHandler)
-
-	router.POST("/network/ap-mode/activate", activateAPModeHTTPHandler)
-	router.POST("/network/ap-mode/deactivate", deactivateAPModeHTTPHandler)
 
 	router.PATCH("/network", updateNetworkHTTPHandler)
 
