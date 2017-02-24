@@ -218,7 +218,7 @@ func IsConnected() (bool, error) {
 
 // waitForNetwork just performs a ping command to google's DNS server to check
 // if the network is up or down.
-// The command will execute for 3 minutes and it sleeps 4 seconds before
+// The command will execute for 40 seconds and it will sleep 1 second before
 // trying again if the ping command fails.
 // The ping command ignores the exec.ExitError errors since this tell us that
 // the network is up or down, all other errors are returned since are
@@ -229,7 +229,7 @@ func waitForNetwork() error {
 	log := logger.GetLogger().WithField("function", "waitForNetwork")
 
 	tries := 0
-	for tries < 7 {
+	for tries < 40 {
 		ping := exec.Command("ping", "-w", "1", "8.8.8.8")
 
 		log.Debug("Pinging")
