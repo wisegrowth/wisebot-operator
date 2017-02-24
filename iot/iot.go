@@ -155,8 +155,8 @@ func (c *Client) logger() *logrus.Entry {
 }
 
 func (c *Client) onConnect() MQTT.OnConnectHandler {
-	c.logger().Info("Running MQTT.OnConnectHandler")
 	return func(client MQTT.Client) {
+		c.logger().Info("Running MQTT.OnConnectHandler")
 		for topic, handler := range c.subscriptions {
 			c.Subscribe(topic, handler)
 		}
