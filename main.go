@@ -109,9 +109,6 @@ func main() {
 		}
 	}()
 
-	log.Debug("Activating APMode")
-	check(rasp.ActivateAPMode())
-
 	log.Debug("Checking wifi connection")
 	isConnected, err := rasp.IsConnected()
 	check(err)
