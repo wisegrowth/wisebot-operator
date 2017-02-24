@@ -156,8 +156,8 @@ func openFileAndTruncate(name string) (*os.File, error) {
 func SetupWifi(n *Network) error {
 	log := logger.GetLogger().WithField("function", "SetupWifi")
 
-	log.Debug("Updating wpa_supplicant.conf file and reconfigure wpa_supplicant")
-	if err := reconfigureWPASupplicant(n); err != nil {
+	log.Debug("Updating wpa_supplicant.conf file")
+	if err := configureWPASupplicantWithNetwork(n); err != nil {
 		return err
 	}
 
@@ -180,7 +180,7 @@ func restartInterface(networkInterface string) error {
 	return exec.Command("sudo", "ifup", networkInterface).Run()
 }
 
-func reconfigureWPASupplicant(n *Network) error {
+func configureWPASupplicantWithNetwork(n *Network) error {
 	f, err := openFileAndTruncate(wpaSupplicantPath)
 	if err != nil {
 		return err
@@ -191,15 +191,9 @@ func reconfigureWPASupplicant(n *Network) error {
 		return err
 	}
 
-	if err := f.Sync(); err != nil {
-		return err
-	}
+	defer f.Close()
 
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	return exec.Command("wpa_cli", "reconfigure").Run()
+	return f.Sync()
 }
 
 // IsConnected executes a ping command in order to check wether the device is
