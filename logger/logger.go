@@ -18,7 +18,7 @@ type Logger interface {
 }
 
 var (
-	log Logger
+	log Logger = logrus.New()
 )
 
 // setLogger sets the package level logger
@@ -36,7 +36,7 @@ func Init(wisebotID, sentryDSN string) error {
 	log := logrus.New()
 
 	log.Level = logrus.DebugLevel
-	log.Formatter = &logrus.JSONFormatter{}
+	// log.Formatter = &logrus.JSONFormatter{}
 
 	levels := []logrus.Level{
 		logrus.PanicLevel,
