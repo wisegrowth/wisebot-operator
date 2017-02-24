@@ -10,7 +10,6 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
 	"github.com/julienschmidt/httprouter"
-	"github.com/rs/cors"
 	"github.com/urfave/negroni"
 )
 
@@ -146,16 +145,9 @@ func NewHTTPServer() *http.Server {
 
 	router.PATCH("/network", updateNetworkHTTPHandler)
 
-	cors := cors.New(cors.Options{
-		AllowedHeaders:     []string{"Accept", "Authorization", "Content-Type"},
-		AllowedMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
-		AllowCredentials:   true,
-		OptionsPassthrough: true,
-	})
-
 	addr := fmt.Sprintf(":%d", httpPort)
 	routes := negroni.Wrap(router)
-	n := negroni.New(cors, negroni.HandlerFunc(httpLogginMiddleware), routes)
+	n := negroni.New(negroni.HandlerFunc(httpLogginMiddleware), routes)
 	server := &http.Server{Addr: addr, Handler: n}
 
 	return server
