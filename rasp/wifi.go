@@ -161,8 +161,23 @@ func SetupWifi(n *Network) error {
 		return err
 	}
 
+	log.Debug("Restarting interface " + wifiInterface)
+	if err := restartInterface(wifiInterface); err != nil {
+		return err
+	}
+
 	log.Debug("Checking connection with ping")
 	return waitForNetwork()
+}
+
+// restartInterface just runs an `sudo ifdown` and `sudo ifup` with the
+// indicated interface.
+func restartInterface(networkInterface string) error {
+	if err := exec.Command("sudo", "ifdown", networkInterface).Run(); err != nil {
+		return err
+	}
+
+	return exec.Command("sudo", "ifup", networkInterface).Run()
 }
 
 func reconfigureWPASupplicant(n *Network) error {
