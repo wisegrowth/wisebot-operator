@@ -1,6 +1,6 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
-PI_IP=192.168.8.103
+PI_IP=192.168.8.106
 SENTRY_DSN=""
 
 GO ?= go
@@ -24,9 +24,9 @@ clean:
 upload:
 	@echo "[upload] Starting..."
 	@scp $(BIN) pi@$(PI_IP):~
+	@echo "[upload] Done"
 
-deploy: pi
-	@echo "[deploy] Starting..."
-	@scp $(BIN) pi@$(PI_IP):~
+deploy: pi upload
+	@echo "[deploy] Done"
 
 .PHONY: pi build b clean upload deploy run

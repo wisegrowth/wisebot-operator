@@ -1,17 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
-	log "github.com/mgutz/logxi/v1"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -108,23 +109,25 @@ func main() {
 		}
 	}()
 
+	log.Debug("Activating APMode")
+	check(rasp.ActivateAPMode())
+
 	log.Debug("Checking wifi connection")
 	isConnected, err := rasp.IsConnected()
 	check(err)
 
+	httpClient := &http.Client{}
+
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	if isConnected {
-		log.Debug("Deactivating AP Mode")
-		rasp.DeactivateAPMode()
-
+		httpClient.Do(buildRequest("green"))
 		log.Debug("Bootstraping and starting services")
 		const update = true
 		check(bootstrapServices(update))
 		check(bootstrapMQTTClient())
 		log.Debug("Bootstraping done")
 	} else {
-		log.Debug("Activating APMode")
-		check(rasp.ActivateAPMode())
+		httpClient.Do(buildRequest("blue"))
 	}
 
 	// ----- Gracefully shutdown
@@ -132,6 +135,18 @@ func main() {
 	listenInterrupt(quit)
 	<-quit
 	log.Info("Done")
+}
+
+func buildRequest(color string) *http.Request {
+	payload := []byte(fmt.Sprintf("{\"color\": \"%s\"}", color))
+
+	body := bytes.NewBuffer(payload)
+	ledRequest, err := http.NewRequest("POST", "http://localhost:5001/set-color", body)
+	check(err)
+
+	ledRequest.Header.Set("Content-Type", "application/json")
+
+	return ledRequest
 }
 
 func bootstrapServices(update bool) error {
@@ -157,6 +172,7 @@ func listenInterrupt(quit chan struct{}) {
 	go func() {
 		<-c
 
+		log := logger.GetLogger()
 		if err := httpServer.Shutdown(nil); err != nil {
 			log.Error(err.Error())
 		}
@@ -198,6 +214,7 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
+		debug.PrintStack()
 		logger.GetLogger().Fatal(err)
 	}
 }

@@ -78,7 +78,7 @@ func (n *Network) IsWPA() bool {
 // if there is more than one network with the same ESSID, it just considers the
 // one with the higher signal level value.
 func AvailableNetworks() ([]*Network, error) {
-	out, err := exec.Command("sudo", "iwlist", apInterface, "scan").Output()
+	out, err := exec.Command("sudo", "iwlist", wifiInterface, "scan").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -182,16 +182,7 @@ func SetupWifi(n *Network) error {
 	}
 
 	log.Debug("Checking connection with ping")
-	connected, err := IsConnected()
-	if err != nil {
-		return err
-	}
-
-	if !connected {
-		return ErrNoWifi
-	}
-
-	return nil
+	return waitForNetwork()
 }
 
 // IsConnected executes a ping command in order to check wether the device is
@@ -271,29 +262,26 @@ func restartNetworkInterface(netInterface string) error {
 // unexpected errors.
 // It returns a nil error if the device is connected to the internet.
 func waitForNetwork() error {
-	sleepDuration := time.Second * 4
+	sleepDuration := time.Second * 1
 	log := logger.GetLogger().WithField("function", "waitForNetwork")
 
-	for {
+	tries := 0
+	for tries < 7 {
 		ping := exec.Command("ping", "-w", "1", "8.8.8.8")
 
-		select {
-		case <-time.After(time.Minute * 3):
-			return ErrNoWifi
-		default:
-			log.Debug("Pinging")
-			if err := ping.Run(); err != nil {
-				// Ignore exit errors
-				if _, ok := (err).(*exec.ExitError); !ok {
-					return err
-				}
-				break // exit error
+		log.Debug("Pinging")
+		if err := ping.Run(); err != nil {
+			// Ignore exit errors
+			if _, ok := (err).(*exec.ExitError); !ok {
+				return err
 			}
-
+		} else {
 			return nil
 		}
 
-		log.Debug("Sleep 4 seconds")
+		log.Debug("Sleep 1 second")
 		time.Sleep(sleepDuration)
+		tries++
 	}
+	return ErrNoWifi
 }
