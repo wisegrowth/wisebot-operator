@@ -5,6 +5,10 @@ import (
 	ravenSentry "github.com/evalphobia/logrus_sentry"
 )
 
+var (
+	environment string
+)
+
 // Logger is the exposed standard-ish logging interface
 type Logger interface {
 	Debug(v ...interface{})
@@ -36,7 +40,9 @@ func Init(wisebotID, sentryDSN string) error {
 	log := logrus.New()
 
 	log.Level = logrus.DebugLevel
-	// log.Formatter = &logrus.JSONFormatter{}
+	if environment == "production" {
+		log.Formatter = &logrus.JSONFormatter{}
+	}
 
 	levels := []logrus.Level{
 		logrus.PanicLevel,
