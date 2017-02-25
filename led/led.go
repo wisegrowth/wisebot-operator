@@ -27,11 +27,11 @@ const (
 
 func (ns NetworkStatus) String() string {
 	switch ns {
-	case Connected:
+	case NetworkConnected:
 		return "connected"
-	case Connecting:
+	case NetworkConnecting:
 		return "connecting"
-	case Error:
+	case NetworkError:
 		return "error"
 	}
 
@@ -59,6 +59,9 @@ func PostNetworkStatus(status NetworkStatus, when time.Time) error {
 	if err != nil {
 		return err
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+
 	client := http.Client{}
 	_, err = client.Do(req)
 
