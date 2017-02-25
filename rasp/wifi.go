@@ -202,7 +202,7 @@ func IsConnected() (bool, error) {
 		return true, nil
 	}
 
-	ping := exec.Command("ping", "-t", "20", "-w", "1", "8.8.8.8")
+	ping := exec.Command("ping", "-t", "20", "-c", "1", "8.8.8.8")
 
 	if err := ping.Run(); err != nil {
 		// Ignore exit errors
