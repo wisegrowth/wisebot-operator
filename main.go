@@ -1,16 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"time"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
+	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
 	homedir "github.com/mitchellh/go-homedir"
@@ -113,18 +114,18 @@ func main() {
 	isConnected, err := rasp.IsConnected()
 	check(err)
 
-	httpClient := &http.Client{}
-
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	if isConnected {
-		httpClient.Do(buildRequest("green"))
+		go func(when time.Time) {
+			if err := led.PostNetworkStatus(led.NetworkConnected, when); err != nil {
+				log.Error(err)
+			}
+		}(time.Now())
 		log.Debug("Bootstraping and starting services")
 		const update = true
 		check(bootstrapServices(update))
 		check(bootstrapMQTTClient())
 		log.Debug("Bootstraping done")
-	} else {
-		httpClient.Do(buildRequest("blue"))
 	}
 
 	// ----- Gracefully shutdown
@@ -132,18 +133,6 @@ func main() {
 	listenInterrupt(quit)
 	<-quit
 	log.Info("Done")
-}
-
-func buildRequest(color string) *http.Request {
-	payload := []byte(fmt.Sprintf("{\"color\": \"%s\"}", color))
-
-	body := bytes.NewBuffer(payload)
-	ledRequest, err := http.NewRequest("POST", "http://localhost:5001/set-color", body)
-	check(err)
-
-	ledRequest.Header.Set("Content-Type", "application/json")
-
-	return ledRequest
 }
 
 func bootstrapServices(update bool) error {
