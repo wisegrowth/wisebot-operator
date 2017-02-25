@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
 	"github.com/julienschmidt/httprouter"
@@ -88,13 +89,32 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 
 	log := getLogger(r)
 	log.Debug(fmt.Sprintf("ESSID: %q Password: %q", network.ESSID, network.Password))
+
+	go func(when time.Time) {
+		if err := led.PostNetworkStatus(led.NetworkConnecting, when); err != nil {
+			log.Error(err)
+		}
+	}(time.Now())
 	err := rasp.SetupWifi(network)
 	if err == nil {
 		log.Debug("Wifi Connected")
+
+		go func(when time.Time) {
+			if err := led.PostNetworkStatus(led.NetworkConnected, when); err != nil {
+				log.Error(err)
+			}
+		}(time.Now())
+
 		// TODO: bootstrap services if it was in ap mode!
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	go func(when time.Time) {
+		if err := led.PostNetworkStatus(led.NetworkError, when); err != nil {
+			log.Error(err)
+		}
+	}(time.Now())
 
 	if err == rasp.ErrNoWifi {
 		log.Debug("No Wifi")
