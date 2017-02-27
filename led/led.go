@@ -73,7 +73,7 @@ func timeToTimestamp(t time.Time) int64 {
 }
 
 func buildURL(path string) string {
-	for path[0] == '/' && len(path) > 1 {
+	for path[0] == '/' && len(path) > 0 {
 		path = path[1:]
 	}
 
