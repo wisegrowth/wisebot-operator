@@ -116,7 +116,7 @@ func main() {
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	if isConnected {
 		if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
-			check(err)
+			log.Error(err)
 		}
 
 		log.Debug("Bootstraping and starting services")
