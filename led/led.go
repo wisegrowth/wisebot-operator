@@ -40,13 +40,13 @@ func (ns NetworkStatus) String() string {
 
 // PostNetworkStatus sends a request to the led service acknowledging the
 // wifi status.
-func PostNetworkStatus(status NetworkStatus, when time.Time) error {
+func PostNetworkStatus(status NetworkStatus) error {
 	payload := struct {
 		Status    string `json:"status"`
 		Timestamp int64
 	}{
 		Status:    status.String(),
-		Timestamp: timeToTimestamp(when),
+		Timestamp: timeToTimestamp(time.Now()),
 	}
 
 	bf := new(bytes.Buffer)

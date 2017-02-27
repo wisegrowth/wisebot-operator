@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"time"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -116,11 +115,10 @@ func main() {
 
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	if isConnected {
-		go func(when time.Time) {
-			if err := led.PostNetworkStatus(led.NetworkConnected, when); err != nil {
-				log.Error(err)
-			}
-		}(time.Now())
+		if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
+			check(err)
+		}
+
 		log.Debug("Bootstraping and starting services")
 		const update = true
 		check(bootstrapServices(update))
