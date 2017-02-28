@@ -58,6 +58,9 @@ func Init(wisebotID, sentryDSN string) error {
 	log.Level = logrus.DebugLevel
 	if environment == "production" {
 		log.Formatter = &logrus.JSONFormatter{}
+	}
+
+	if len(elasticsearchURL) > 0 {
 		client, err := elastic.NewClient(
 			elastic.SetURL(elasticsearchURL),
 			elastic.SetScheme(elasticsearchURLProtocol),
@@ -66,28 +69,30 @@ func Init(wisebotID, sentryDSN string) error {
 		if err != nil {
 			log.Panic(err)
 		}
-		ehook, err := elogrus.NewElasticHook(client, "localhost", logrus.DebugLevel, elasticsearchIndex)
+		hook, err := elogrus.NewElasticHook(client, "localhost", logrus.DebugLevel, elasticsearchIndex)
 		if err != nil {
 			return err
 		}
 
-		log.Hooks.Add(ehook)
+		log.Hooks.Add(hook)
 	}
 
-	levels := []logrus.Level{
-		logrus.PanicLevel,
-		logrus.FatalLevel,
-		logrus.ErrorLevel,
+	if len(sentryDSN) > 0 {
+		levels := []logrus.Level{
+			logrus.PanicLevel,
+			logrus.FatalLevel,
+			logrus.ErrorLevel,
+		}
+
+		hook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot-id": wisebotID}, levels)
+		if err != nil {
+			return err
+		}
+
+		hook.StacktraceConfiguration.Enable = true
+
+		log.Hooks.Add(hook)
 	}
-
-	shook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot-id": wisebotID}, levels)
-	if err != nil {
-		return err
-	}
-
-	shook.StacktraceConfiguration.Enable = true
-
-	log.Hooks.Add(shook)
 
 	setLogger(log.WithField("wisebot-id", wisebotID))
 
