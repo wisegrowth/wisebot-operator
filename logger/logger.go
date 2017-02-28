@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"strings"
+
 	"github.com/Sirupsen/logrus"
 	ravenSentry "github.com/evalphobia/logrus_sentry"
 	elastic "gopkg.in/olivere/elastic.v5"
@@ -8,13 +10,24 @@ import (
 )
 
 var (
-	environment      string
-	elasticsearchURL string
+	environment              string
+	elasticsearchURL         string
+	elasticsearchURLProtocol string
+
+	log Logger = logrus.New()
 )
 
 const (
 	elasticsearchIndex = "wisebot-operator"
 )
+
+func init() {
+	if strings.HasPrefix(elasticsearchURL, "https://") {
+		elasticsearchURLProtocol = "https"
+	} else {
+		elasticsearchURLProtocol = "http"
+	}
+}
 
 // Logger is the exposed standard-ish logging interface
 type Logger interface {
@@ -27,10 +40,6 @@ type Logger interface {
 	WithFields(logrus.Fields) *logrus.Entry
 	WithField(key string, val interface{}) *logrus.Entry
 }
-
-var (
-	log Logger = logrus.New()
-)
 
 // setLogger sets the package level logger
 func setLogger(l *logrus.Entry) {
@@ -51,7 +60,7 @@ func Init(wisebotID, sentryDSN string) error {
 		log.Formatter = &logrus.JSONFormatter{}
 		client, err := elastic.NewClient(
 			elastic.SetURL(elasticsearchURL),
-			elastic.SetScheme("https"),
+			elastic.SetScheme(elasticsearchURLProtocol),
 			elastic.SetSniff(false),
 		)
 		if err != nil {
