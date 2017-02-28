@@ -1,13 +1,12 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
-PI_IP=146.155.116.82
-SENTRY_DSN=""
+PI_IP=192.168.8.103
 
 GO ?= go
 
 pi: clean
 	@echo "[pi] Building..."
-	@GOOS=linux GOARM=7 GOARCH=arm $(GO) build -o $(BIN) -ldflags "-X main.sentryDSN=$(SENTRY_DSN) -X logger.environment=production"
+	@sh build_for_production.sh
 
 build b: clean
 	@echo "[pi] Building..."
@@ -19,7 +18,7 @@ run r: build
 
 clean:
 	@echo "[clean] Removing $(BIN)..."
-	@rm -rf bin/*
+	@rm -rf $(BIN)
 
 upload:
 	@echo "[upload] Starting..."
