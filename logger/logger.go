@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	environment string
+	environment      string
+	elasticsearchURL string
 )
 
 const (
-	elasticsearchURL   = "https://search-wisegrowth-jl3kj4kwv225mzcssitu47xlqe.us-west-2.es.amazonaws.com"
 	elasticsearchIndex = "wisebot-operator"
 )
 
