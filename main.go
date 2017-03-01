@@ -37,7 +37,6 @@ const (
 )
 
 var (
-	wisebotConfigExpandedPath   string
 	wisebotCoreRepoExpandedPath string
 	bleRepoExpandedPath         string
 
@@ -54,14 +53,11 @@ func init() {
 	var err error
 	services = new(ServiceStore)
 
-	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
-	check(err)
-
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
 	// ----- Load wisebot config
-	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
+	wisebotConfig, err = loadConfig(wisebotConfigPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
