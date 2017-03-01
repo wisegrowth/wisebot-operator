@@ -62,7 +62,7 @@ func init() {
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 
-	wisebotLogger, err := newFile("wisebot.log")
+	wisebotLogger, err := newFile(wisebotLogPath)
 	check(err)
 	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
 
