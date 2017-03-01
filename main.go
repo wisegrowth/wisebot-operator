@@ -24,9 +24,9 @@ var (
 )
 
 const (
-	wisebotServiceName    = "wisebot-test"
-	wisebotCoreRepoPath   = "~/wisebot-test"
-	wisebotCoreRepoRemote = "git@github.com:wisegrowth/test.git"
+	wisebotCoreServiceName = "wisebot-core"
+	wisebotCoreRepoPath    = "~/wisebot-core"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
 
 	bleServiceName = "wisebot-ble"
 	bleRepoPath    = "~/wisebot-ble"
@@ -101,7 +101,7 @@ func main() {
 	)
 
 	// ----- Append services to global store
-	services.Save(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
+	services.Save(wisebotCoreServiceName, wisebotCoreCommand, wisebotCoreRepo)
 
 	httpServer = NewHTTPServer()
 	log.Info("Running server on: " + httpServer.Addr)
