@@ -35,8 +35,9 @@ func GetLogger() Logger {
 }
 
 // Init initialize the global module logger
-func Init(wisebotID, sentryDSN string) error {
+func Init(out io.Writer, wisebotID, sentryDSN string) error {
 	log := logrus.New()
+	log.Out = out
 
 	log.Level = logrus.DebugLevel
 	if environment == "production" {

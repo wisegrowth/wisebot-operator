@@ -66,7 +66,9 @@ func init() {
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 
-	check(logger.Init(wisebotConfig.WisebotID, sentryDSN))
+	wisebotLogger, err := newFile("wisebot.log")
+	check(err)
+	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
 
 	// ----- Initialize MQTT client
 	cert, err := wisebotConfig.getTLSCertificate()
