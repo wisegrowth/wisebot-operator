@@ -51,7 +51,7 @@ func Init(out io.Writer, wisebotID, sentryDSN string) error {
 			logrus.ErrorLevel,
 		}
 
-		hook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot-id": wisebotID}, levels)
+		hook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot_id": wisebotID}, levels)
 		if err != nil {
 			return err
 		}
