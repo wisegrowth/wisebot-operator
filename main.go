@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"runtime/debug"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -196,7 +195,6 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
-		debug.PrintStack()
 		log := logger.GetLogger()
 
 		switch (err).(type) {
