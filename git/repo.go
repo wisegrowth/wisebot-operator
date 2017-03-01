@@ -53,7 +53,7 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 type PostReceiveHook func(*Repo) error
 
 const (
-	upstream = "origin/master"
+	upstream = "origin/development"
 )
 
 // Update runs a git fetch to the `origin` remote, if the origin/master has a
