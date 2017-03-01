@@ -32,9 +32,7 @@ const (
 	bleRepoPath    = "~/wisebot-ble"
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
-	wisebotConfigPath = "~/.config/wisebot-operator/config.json"
-
-	iotHost = "a55lp0huv9vtb.iot.us-west-2.amazonaws.com"
+	wisebotConfigPath = "~/.config/wisebot/config.json"
 )
 
 var (
