@@ -33,6 +33,7 @@ const (
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
 	wisebotConfigPath = "~/.config/wisebot/config.json"
+	wisebotLogPath    = "~/.wisebot/logs/operator.log"
 )
 
 var (
