@@ -199,11 +199,14 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
+		debug.PrintStack()
 		log := logger.GetLogger()
-		if e, ok := (err).(*exec.ExitError); ok {
+
+		switch (err).(type) {
+		case *exec.ExitError:
+			e, _ := (err).(*exec.ExitError)
 			log.WithField("stderr", string(e.Stderr)).Fatal(err)
-		} else {
-			debug.PrintStack()
+		default:
 			log.Fatal(err)
 		}
 	}

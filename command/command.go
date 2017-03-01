@@ -29,9 +29,6 @@ type Command struct {
 
 	Version string
 
-	// Maybe this will help us debugging when a command fails?
-	// stderr *bytes.Buffer
-
 	status   Status
 	execName string
 	execArgs []string
