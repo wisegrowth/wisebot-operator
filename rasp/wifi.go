@@ -198,10 +198,6 @@ func configureWPASupplicantWithNetwork(n *Network) error {
 // IsConnected executes a ping command in order to check wether the device is
 // connected to the network.
 func IsConnected() (bool, error) {
-	if onOSX {
-		return true, nil
-	}
-
 	ping := exec.Command("ping", "-t", "20", "-c", "1", "8.8.8.8")
 
 	if err := ping.Run(); err != nil {
