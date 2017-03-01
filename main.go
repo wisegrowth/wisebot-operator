@@ -78,6 +78,7 @@ func init() {
 	mqttClient, err = iot.NewClient(
 		iot.SetHost(wisebotConfig.AWSIOTHost),
 		iot.SetCertificate(*cert),
+		iot.SetClientID("op-"+wisebotConfig.WisebotID),
 	)
 	check(err)
 }
