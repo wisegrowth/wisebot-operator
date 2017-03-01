@@ -11,9 +11,10 @@ import (
 type config struct {
 	WisebotID    string `json:"id"`
 	Certificates struct {
-		PrivateKey  string `json:"privateKey"`
+		PrivateKey  string `json:"private_key"`
 		Certificate string `json:"certificate"`
 	} `json:"keys"`
+	AWSIOTHost string `json:"aws_iot_host"`
 }
 
 var (
