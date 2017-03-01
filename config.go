@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 type config struct {
@@ -22,7 +24,12 @@ var (
 )
 
 func loadConfig(path string) (*config, error) {
-	fileBytes, err := ioutil.ReadFile(path)
+	expandedPath, err := homedir.Expand(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fileBytes, err := ioutil.ReadFile(expandedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, errNoConfigFile
