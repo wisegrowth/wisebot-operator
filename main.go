@@ -76,7 +76,7 @@ func init() {
 	check(err)
 
 	mqttClient, err = iot.NewClient(
-		iot.SetHost(iotHost),
+		iot.SetHost(wisebotConfig.AWSIOTHost),
 		iot.SetCertificate(*cert),
 	)
 	check(err)
