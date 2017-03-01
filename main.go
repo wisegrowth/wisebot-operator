@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime/debug"
 
@@ -200,7 +201,12 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
-		debug.PrintStack()
-		logger.GetLogger().Fatal(err)
+		log := logger.GetLogger()
+		if e, ok := (err).(*exec.ExitError); ok {
+			log.WithField("stderr", string(e.Stderr)).Fatal(err)
+		} else {
+			debug.PrintStack()
+			log.Fatal(err)
+		}
 	}
 }
