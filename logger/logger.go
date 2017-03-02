@@ -25,7 +25,7 @@ type Logger interface {
 }
 
 // setLogger sets the package level logger
-func setLogger(l *logrus.Entry) {
+func setLogger(l *logrus.Logger) {
 	log = l
 }
 
@@ -61,7 +61,7 @@ func Init(out io.Writer, wisebotID, sentryDSN string) error {
 		log.Hooks.Add(hook)
 	}
 
-	setLogger(log.WithField("wisebot-id", wisebotID))
+	setLogger(log)
 
 	return nil
 }
