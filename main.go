@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"syscall"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -150,7 +151,7 @@ func bootstrapServices(update bool) error {
 
 func listenInterrupt(quit chan struct{}) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 
