@@ -11,7 +11,7 @@ func newFile(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(expanded, os.O_APPEND|os.O_WRONLY, 0666)
+	file, err := os.OpenFile(expanded, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0744)
 	if err != nil {
 		if os.IsNotExist(err) {
 			file, err = os.Create(name)
