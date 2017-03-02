@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
@@ -200,7 +201,8 @@ func check(err error) {
 		switch (err).(type) {
 		case *exec.ExitError:
 			e, _ := (err).(*exec.ExitError)
-			log.WithField("stderr", string(e.Stderr)).Fatal(err)
+			stderr := bytes.TrimSpace(e.Stderr)
+			log.WithField("stderr", string(stderr)).Fatal(err)
 		default:
 			log.Fatal(err)
 		}
