@@ -3,15 +3,15 @@ package main
 import (
 	"encoding/json"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/WiseGrowth/wisebot-operator/logger"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
-	logger := log.WithField("topic", topic)
-	logger.Info("Message received")
+	log := logger.GetLogger().WithField("topic", topic)
+	log.Info("Message received")
 
 	responseBytes, _ := json.Marshal(newHealthResponse())
 
@@ -22,6 +22,9 @@ func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 }
 
 func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	topic := message.Topic()
+	log := logger.GetLogger().WithField("topic", topic)
+
 	defer func() {
 		responseBytes, _ := json.Marshal(newHealthResponse())
 
@@ -31,10 +34,7 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		}
 	}()
 
-	topic := message.Topic()
-
-	logger := log.WithField("topic", topic)
-	logger.Info("Message received")
+	log.Info("Message received")
 
 	payload := struct {
 		Process struct {
@@ -54,6 +54,9 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 }
 
 func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	topic := message.Topic()
+	log := logger.GetLogger().WithField("topic", topic)
+
 	defer func() {
 		responseBytes, _ := json.Marshal(newHealthResponse())
 
@@ -63,10 +66,7 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		}
 	}()
 
-	topic := message.Topic()
-
-	logger := log.WithField("topic", topic)
-	logger.Info("Message received")
+	log.Info("Message received")
 
 	payload := struct {
 		Process struct {
@@ -86,6 +86,9 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 }
 
 func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	topic := message.Topic()
+	log := logger.GetLogger().WithField("topic", topic)
+
 	defer func() {
 		responseBytes, _ := json.Marshal(newHealthResponse())
 
@@ -94,11 +97,7 @@ func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 			log.Error(token.Error())
 		}
 	}()
-
-	topic := message.Topic()
-
-	logger := log.WithField("topic", topic)
-	logger.Info("Message received")
+	log.Info("Message received")
 
 	payload := struct {
 		Process struct {
