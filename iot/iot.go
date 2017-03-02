@@ -137,15 +137,13 @@ func NewClient(configs ...Config) (*Client, error) {
 		config(client)
 	}
 
-	client.clientOptions = &MQTT.ClientOptions{
-		ClientID:             client.id,
-		CleanSession:         true,
-		AutoReconnect:        true,
-		MaxReconnectInterval: 1 * time.Second,
-		KeepAlive:            30 * time.Second,
-		TLSConfig:            tls.Config{Certificates: []tls.Certificate{client.certificate}},
-		OnConnect:            client.onConnect(),
-	}
+	copts := MQTT.NewClientOptions()
+	copts.SetClientID(client.id)
+	copts.SetMaxReconnectInterval(1 * time.Second)
+	copts.SetOnConnectHandler(client.onConnect())
+	copts.SetTLSConfig(&tls.Config{Certificates: []tls.Certificate{client.certificate}})
+
+	client.clientOptions = copts
 
 	client.clientOptions.AddBroker(client.brokerURL(secureProtocol))
 
