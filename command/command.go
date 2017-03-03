@@ -97,6 +97,10 @@ func (c *Command) Update(updater Updater) (updated bool, err error) {
 
 // Status check the command's process state and returns a verbose status.
 func (c *Command) Status() Status {
+	if c.status == StatusStopped {
+		return c.status
+	}
+
 	if ps := c.Cmd.ProcessState; ps != nil {
 		if ps.Success() {
 			return StatusDone
