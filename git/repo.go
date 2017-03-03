@@ -222,9 +222,9 @@ func sanitizeOutput(b []byte) string {
 // NpmInstallHook is a PostReceiveHook preset that runs a
 // `npm install --production` command.
 func NpmInstallHook(r *Repo) error {
-	npmInstall := exec.Command("sudo", "npm", "install", "--production")
+	npmInstall := exec.Command("sudo", "npm", "install", "--production", "--unsafe-perm")
 	if onOSX {
-		npmInstall = exec.Command("npm", "install", "--production", "--unsafe-perm")
+		npmInstall = exec.Command("npm", "install", "--production")
 	}
 	npmInstall.Dir = r.Path
 
