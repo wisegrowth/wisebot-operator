@@ -70,7 +70,7 @@ func init() {
 
 func main() {
 	log := logger.GetLogger().WithField("version", operatorVersion)
-	log.Info("Start")
+	log.Info("Starting")
 
 	// ----- Initialize git repos
 	wisebotCoreRepo = git.NewRepo(
