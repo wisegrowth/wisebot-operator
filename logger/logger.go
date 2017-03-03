@@ -2,6 +2,7 @@ package logger
 
 import (
 	"io"
+	"os"
 
 	"github.com/Sirupsen/logrus"
 	ravenSentry "github.com/evalphobia/logrus_sentry"
@@ -37,11 +38,12 @@ func GetLogger() Logger {
 // Init initialize the global module logger
 func Init(out io.Writer, wisebotID, sentryDSN string) error {
 	log := logrus.New()
-	log.Out = out
+	log.Out = os.Stderr
 
 	log.Level = logrus.DebugLevel
 	if environment == "production" {
 		log.Formatter = &logrus.JSONFormatter{}
+		log.Out = out
 	}
 
 	if len(sentryDSN) > 0 {
