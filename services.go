@@ -212,6 +212,7 @@ func (ss *ServiceStore) StopService(name string) error {
 	}
 
 	svc.logger().Info("Stopping")
+	defer svc.logger().Info("Stopped")
 	return svc.cmd.Stop()
 }
 
