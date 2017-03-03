@@ -224,7 +224,7 @@ func sanitizeOutput(b []byte) string {
 func NpmInstallHook(r *Repo) error {
 	npmInstall := exec.Command("sudo", "npm", "install", "--production")
 	if onOSX {
-		npmInstall = exec.Command("npm", "install", "--production")
+		npmInstall = exec.Command("npm", "install", "--production", "--unsafe-perm")
 	}
 	npmInstall.Dir = r.Path
 
