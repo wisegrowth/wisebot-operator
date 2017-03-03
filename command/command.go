@@ -177,9 +177,10 @@ func NewCommand(version, name string, args ...string) *Command {
 		Cmd:     exec.Command(name, args...),
 		Version: version,
 
-		status:   StatusIdle,
-		execName: name,
-		execArgs: args,
+		status:    StatusIdle,
+		execName:  name,
+		execArgs:  args,
+		exitError: make(chan error, 1),
 	}
 
 	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{
