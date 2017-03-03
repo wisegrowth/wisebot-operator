@@ -70,10 +70,11 @@ func init() {
 }
 
 func main() {
-	log := logger.GetLogger().WithField("version", operatorVersion)
-	log.Info("Starting")
 	defer wisebotLogger.Close()
 	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
+
+	log := logger.GetLogger().WithField("version", operatorVersion)
+	log.Info("Starting")
 
 	// ----- Initialize git repos
 	wisebotCoreRepo = git.NewRepo(
