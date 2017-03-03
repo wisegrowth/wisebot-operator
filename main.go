@@ -20,6 +20,8 @@ import (
 
 var (
 	sentryDSN string
+
+	operatorVersion string
 )
 
 const (
@@ -67,7 +69,8 @@ func init() {
 }
 
 func main() {
-	log := logger.GetLogger()
+	log := logger.GetLogger().WithField("version", operatorVersion)
+	log.Info("Start")
 
 	// ----- Initialize git repos
 	wisebotCoreRepo = git.NewRepo(
