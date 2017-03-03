@@ -138,7 +138,6 @@ func (c *Command) Stop() error {
 		return err
 	}
 
-	logger.GetLogger().Warn("this should not happend")
 	return <-c.exitError
 }
 
