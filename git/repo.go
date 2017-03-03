@@ -3,11 +3,13 @@ package git
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"runtime"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 
@@ -16,6 +18,11 @@ import (
 
 const (
 	onOSX = (runtime.GOOS == "darwin")
+)
+
+// Errors
+var (
+	ErrWrongUpstream = errors.New("git: upstream is not valid")
 )
 
 // Repo represents a git repo, it contains its path and remote. This struct has
@@ -58,6 +65,7 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 type PostReceiveHook func(*Repo) error
 
 const (
+	// upstream must have the following format: remote/branch
 	upstream = "origin/development"
 )
 
@@ -145,7 +153,13 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 		logger := r.logger()
 
 		logger.Info("Clonning")
-		clone := exec.Command("git", "clone", "--single-branch", "--branch", "master", r.Remote, r.Path)
+
+		branchIndex := strings.Index(upstream, "/")
+		if branchIndex < 1 {
+			return ErrWrongUpstream
+		}
+		branch := upstream[branchIndex+1:]
+		clone := exec.Command("git", "clone", "--single-branch", "--branch", branch, r.Remote, r.Path)
 		clone.Dir = path.Dir(r.Path)
 
 		if err := clone.Run(); err != nil {
