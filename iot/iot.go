@@ -141,6 +141,9 @@ func NewClient(configs ...Config) (*Client, error) {
 	copts.SetClientID(client.id)
 	copts.SetMaxReconnectInterval(1 * time.Second)
 	copts.SetOnConnectHandler(client.onConnect())
+	copts.SetConnectionLostHandler(func(c MQTT.Client, err error) {
+		logger.GetLogger().Warn("[MQTT] disconnected, reason: " + err.Error())
+	})
 	copts.SetTLSConfig(&tls.Config{Certificates: []tls.Certificate{client.certificate}})
 
 	client.clientOptions = copts
