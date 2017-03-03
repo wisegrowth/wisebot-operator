@@ -79,10 +79,10 @@ func (ss *ServiceStore) MarshalJSON() ([]byte, error) {
 
 func (s *Service) logger() *log.Entry {
 	return logger.GetLogger().WithFields(log.Fields{
-		"name":         s.Name,
-		"version":      s.cmd.Version,
-		"status":       s.cmd.Status(),
-		"repo_version": s.repo.CurrentHead(),
+		"name":            s.Name,
+		"command_version": s.cmd.Version,
+		"status":          s.cmd.Status(),
+		"repo_version":    s.repo.CurrentHead(),
 	})
 }
 
