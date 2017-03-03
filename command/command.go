@@ -116,7 +116,7 @@ func (c *Command) Stop() error {
 	}
 
 	if c.status == StatusError {
-		log.Warn("stopping an exited with error command")
+		return nil
 	}
 
 	c.status = StatusStopped
