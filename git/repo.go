@@ -18,6 +18,9 @@ import (
 
 const (
 	onOSX = (runtime.GOOS == "darwin")
+
+	// upstream must have the following format: remote/branch
+	upstream = "origin/development"
 )
 
 // Errors
@@ -63,11 +66,6 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 
 // PostReceiveHook is a function that runs after clonning and updating the repo.
 type PostReceiveHook func(*Repo) error
-
-const (
-	// upstream must have the following format: remote/branch
-	upstream = "origin/development"
-)
 
 // Update runs a git fetch to the `origin` remote, if the origin/master has a
 // different sha that the current head, it executes a
