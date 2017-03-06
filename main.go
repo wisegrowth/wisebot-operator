@@ -17,7 +17,6 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
-	log "github.com/mgutz/logxi/v1"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -161,10 +160,12 @@ func main() {
 }
 
 func notifyInternet() {
+	log := logger.GetLogger()
 	for {
 		if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
-			logger.GetLogger().Error(err)
+			log.Error(err)
 			time.Sleep(2 * time.Second)
+			log.Debug("network connected post failed, retrying")
 			continue
 		}
 
