@@ -4,7 +4,7 @@ PI_IP=wisebot.pi
 
 GO ?= go
 
-pi: clean
+pi: build_for_production.sh clean
 	@echo "[pi] Building..."
 	@sh build_for_production.sh
 

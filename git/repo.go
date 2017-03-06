@@ -176,9 +176,9 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 
 func (r *Repo) logger() *logrus.Entry {
 	return logger.GetLogger().WithFields(logrus.Fields{
-		"process": r.name,
-		"version": r.head,
-		"repo":    r.Path,
+		"process":      r.name,
+		"repo_version": r.head,
+		"repo":         r.Path,
 	})
 }
 
