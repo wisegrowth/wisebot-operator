@@ -54,7 +54,7 @@ func PostNetworkStatus(status NetworkStatus) error {
 		return err
 	}
 
-	urlStr := buildURL("/network/" + status.String())
+	urlStr := buildURL("/network")
 	req, err := http.NewRequest("POST", urlStr, bf)
 	if err != nil {
 		return err

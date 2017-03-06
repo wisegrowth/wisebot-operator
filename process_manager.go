@@ -63,10 +63,11 @@ func (pm *ProcessManager) bootstrapServices(update bool) error {
 	}
 
 	log.Debug("Starting commands")
-	if err := pm.Services.Start(); err != nil {
-		pm.Services.Stop()
-		return err
-	}
+	// TODO: uncomment the following lines
+	// if err := pm.Services.Start(); err != nil {
+	// 	pm.Services.Stop()
+	// 	return err
+	// }
 
 	return nil
 }
