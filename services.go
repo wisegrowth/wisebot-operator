@@ -152,7 +152,7 @@ func (ss *ServiceStore) Update(name string) error {
 }
 
 // Save builds and add the service to the list.
-func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
+func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) *Service {
 	s := newService(name, c, r)
 
 	ss.mu.RLock()
@@ -165,6 +165,8 @@ func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) {
 	defer ss.mu.Unlock()
 
 	ss.list[s.Name] = s
+
+	return s
 }
 
 // StartService starts a specific service inside the store.
@@ -173,6 +175,12 @@ func (ss *ServiceStore) StartService(name string) error {
 	svc, ok := ss.Find(name)
 	if !ok {
 		return fmt.Errorf("services: service %q not found for starting", name)
+	}
+
+	status := svc.cmd.Status()
+	if status == command.StatusError || status == command.StatusStopped || status == command.StatusDone {
+		newCmd := svc.cmd.Clone()
+		svc = ss.Save(svc.Name, newCmd, svc.repo)
 	}
 
 	svc.logger().Info("Starting")
@@ -204,6 +212,7 @@ func (ss *ServiceStore) StopService(name string) error {
 	}
 
 	svc.logger().Info("Stopping")
+	defer svc.logger().Info("Stopped")
 	return svc.cmd.Stop()
 }
 

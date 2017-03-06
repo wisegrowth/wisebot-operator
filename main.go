@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -43,6 +44,7 @@ var (
 
 	wisebotCoreRepo *git.Repo
 	wisebotConfig   *config
+	wisebotLogger   io.WriteCloser
 
 	healthzPublishableTopic string
 
@@ -63,12 +65,14 @@ func init() {
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 
-	wisebotLogger, err := newFile(wisebotLogPath)
+	wisebotLogger, err = newFile(wisebotLogPath)
 	check(err)
-	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
 }
 
 func main() {
+	defer wisebotLogger.Close()
+	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
+
 	log := logger.GetLogger().WithField("version", operatorVersion)
 	log.Info("Starting")
 
@@ -147,6 +151,7 @@ func main() {
 	listenInterrupt(quit)
 	<-quit
 	gracefullShutdown()
+	wisebotLogger.Close()
 	log.Info("Done")
 }
 
@@ -179,5 +184,6 @@ func check(err error) {
 		default:
 			log.Fatal(err)
 		}
+		wisebotLogger.Close()
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // Status represents the current command status
@@ -32,6 +34,8 @@ type Command struct {
 	status   Status
 	execName string
 	execArgs []string
+
+	exitError chan error
 }
 
 // Clone clones the command by instantiate a new one with same attributes
@@ -93,6 +97,10 @@ func (c *Command) Update(updater Updater) (updated bool, err error) {
 
 // Status check the command's process state and returns a verbose status.
 func (c *Command) Status() Status {
+	if c.status == StatusStopped {
+		return c.status
+	}
+
 	if ps := c.Cmd.ProcessState; ps != nil {
 		if ps.Success() {
 			return StatusDone
@@ -106,13 +114,19 @@ func (c *Command) Status() Status {
 
 // Stop stops the command and closes the log file if exists.
 func (c *Command) Stop() error {
+	log := logger.GetLogger()
 	if c.status == StatusStopped {
 		return fmt.Errorf("commands: command %q is already stopped", c.Slug())
+	}
+
+	if c.status == StatusError {
+		return nil
 	}
 
 	c.status = StatusStopped
 
 	if c.Cmd.Process == nil {
+		log.Debug("Stopped command when c.Cmd.Process was nil")
 		return nil
 	}
 
@@ -120,6 +134,7 @@ func (c *Command) Stop() error {
 	// Run or Wait functions.
 	ps := c.Cmd.ProcessState
 	if ps != nil && ps.Exited() {
+		log.Debug("Stopped command when c.Cmd.ProcessState is set and process.Exited() is true")
 		return nil
 	}
 
@@ -127,8 +142,7 @@ func (c *Command) Stop() error {
 		return err
 	}
 
-	_, err := c.Cmd.Process.Wait()
-	return err
+	return <-c.exitError
 }
 
 // Wait only proxies the function call to the  os.Command.Wait function.
@@ -142,6 +156,14 @@ func (c *Command) Start() error {
 	if err := c.Cmd.Start(); err != nil {
 		return err
 	}
+
+	go func() {
+		err := c.Wait()
+		if err != nil {
+			c.status = StatusError
+		}
+		c.exitError <- err
+	}()
 
 	c.status = StatusRunning
 
@@ -159,9 +181,10 @@ func NewCommand(version, name string, args ...string) *Command {
 		Cmd:     exec.Command(name, args...),
 		Version: version,
 
-		status:   StatusIdle,
-		execName: name,
-		execArgs: args,
+		status:    StatusIdle,
+		execName:  name,
+		execArgs:  args,
+		exitError: make(chan error, 1),
 	}
 
 	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{
