@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
@@ -8,6 +10,7 @@ import (
 
 // ProcessManager is in charge of starting and stoping the processes.
 type ProcessManager struct {
+	sync.Mutex
 	Services   *ServiceStore
 	MQTTClient *iot.Client
 	started    bool
@@ -20,6 +23,9 @@ type ProcessManager struct {
 // Both, subprocesses and messaging client knows how to reconnect where they
 // lose connection, but they must be started while being online.
 func (pm *ProcessManager) KickOff() error {
+	pm.Lock()
+	defer pm.Unlock()
+
 	log := logger.GetLogger()
 	log.Debug("Bootstraping and starting services")
 
@@ -48,6 +54,9 @@ func (pm *ProcessManager) KickOff() error {
 
 // Stop stops `pm.ServiceStore` services and disconnects the MQTT Client.
 func (pm *ProcessManager) Stop() {
+	pm.Lock()
+	defer pm.Unlock()
+
 	log := logger.GetLogger()
 	pm.MQTTClient.Disconnect(250)
 	log.Info("[MQTT] Disconnected")
