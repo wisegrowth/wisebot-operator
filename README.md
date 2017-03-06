@@ -1,7 +1,6 @@
 # Wisebot Operator
 
-This repo contains the daemon process that manages and controlls
-the different applications proccesses than runs on the raspberry.
+This repo contains the daemon process that manages and controlls the different applications proccesses than runs on the raspberry.
 
 This daemon knows how to update either itself and its processes.
 
@@ -17,8 +16,7 @@ PS: *This is under development*
 |:-----:|:---:|
 |`/operator/:wisebot-id/healthz`| Empty Payload |
 
-After this event we must publish the following message with
-all the operator's process current information:
+After this event we publish the following message with all the operator's process current information:
 
 **Route**: `/operator/:wisebot-id/healthz:response`
 
@@ -27,16 +25,19 @@ all the operator's process current information:
 ```json
 {
   "data": [
-    { "name": "wisebot", "status": "running", "version": "1.0.1" },
-    { "name": "ble", "status": "updating", "version": "2.0.4" }
-  ]
+    { "name": "core", "status": "running", "version": "e3b1730", "repo_version": "e3b1730" },
+    { "name": "ble", "status": "updating", "version": "db0ba56", "repo_version": "fddc960" },
+  ],
+  "meta": {
+    "wifi_status": { "is_connected": true, "essid": "foo bar house" },
+    "mqtt_status": { "is_connected": false }
+  }
 }
 ```
 
 #### Update
 
-This task should not replace the current process until the wisebot
-stop making usage of actionators as water pump, etc.
+This task should not replace the current process until the wisebot stop making usage of actionators as water pump, etc.
 
 | Topic to Subscribe | Payload |
 |:-----:|:---:|
@@ -56,6 +57,32 @@ stop making usage of actionators as water pump, etc.
 
 ### Publishable topics
 
+Each of the following topics will publish to **Route**: `/operator/:wisebot-id/healthz:response` after executing.
+
+#### Start Process
+
+**Route**: `/operator/:wisebot-id/start`
+
+**Expected Payload**:
+
+```js
+{
+  "process": { "name": "core" }
+}
+```
+
+#### Stop Process
+
+**Route**: `/operator/:wisebot-id/stop`
+
+**Expected Payload**:
+
+```js
+{
+  "process": { "name": "core" }
+}
+```
+
 #### Updating Process
 
 **Route**: `/operator/:wisebot-id/process-update`
@@ -64,18 +91,7 @@ stop making usage of actionators as water pump, etc.
 
 ```js
 {
-  "data": {
-    "name": "wisebot",
-    "status": "update:started", // update:started - update:finished
-    "new_version": "5c38683",
-    "old_version": "dfd09a7"
-  },
-  "meta": {
-    "proccesses": [
-      { "name": "wisebot", "status": "update:started", "version": "dfd09a7" },
-      { "name": "ble", "status": "running:", "version": "5482f18" }
-    ]
-  }
+  "process": { "name": "core" }
 }
 ```
 
@@ -85,5 +101,5 @@ stop making usage of actionators as water pump, etc.
 
 - [X] Connect to aws iot
 - [ ] Update itself
-- [ ] Update wisebot process
+- [X] Update core process
 - [ ] Connect with BLE server/service
