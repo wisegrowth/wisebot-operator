@@ -47,7 +47,7 @@ func updateCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := services.Update(payload.Process.Name); err != nil {
+	if err := processManager.Services.Update(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -79,7 +79,7 @@ func stopCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := services.StopService(payload.Process.Name); err != nil {
+	if err := processManager.Services.StopService(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -110,7 +110,7 @@ func startCommandMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	if err := services.StartService(payload.Process.Name); err != nil {
+	if err := processManager.Services.StartService(payload.Process.Name); err != nil {
 		log.Error(err)
 		return
 	}

@@ -45,7 +45,7 @@ func newHealthResponse() *healthResponse {
 	meta.WifiStatus.ESSID = currentESSID
 
 	return &healthResponse{
-		Data: services,
+		Data: processManager.Services,
 		Meta: meta,
 	}
 }
@@ -102,7 +102,7 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 			log.Error(err)
 		}
 
-		// TODO: bootstrap services if it was in ap mode!
+		processManager.KickOff()
 		w.WriteHeader(http.StatusOK)
 		return
 	}
