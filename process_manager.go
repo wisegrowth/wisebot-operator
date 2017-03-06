@@ -20,7 +20,7 @@ type ProcessManager struct {
 // managed by the operator. This function must be called after checking that
 // there is internet connection, otherwise, messaging client and subprocesses
 // are going to fail.
-// Both, subprocesses and messaging client knows how to reconnect where they
+// Both, subprocesses and messaging client knows how to reconnect when they
 // lose connection, but they must be started while being online.
 func (pm *ProcessManager) KickOff() error {
 	pm.Lock()
