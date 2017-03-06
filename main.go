@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
-	"runtime/debug"
+	"syscall"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -23,21 +25,19 @@ var (
 )
 
 const (
-	wisebotServiceName    = "wisebot-test"
-	wisebotCoreRepoPath   = "~/wisebot-test"
-	wisebotCoreRepoRemote = "git@github.com:wisegrowth/test.git"
+	wisebotCoreServiceName = "wisebot-core"
+	wisebotCoreRepoPath    = "~/wisebot-core"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
 
 	bleServiceName = "wisebot-ble"
 	bleRepoPath    = "~/wisebot-ble"
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
-	wisebotConfigPath = "~/.config/wisebot-operator/config.json"
-
-	iotHost = "a55lp0huv9vtb.iot.us-west-2.amazonaws.com"
+	wisebotConfigPath = "~/.config/wisebot/config.json"
+	wisebotLogPath    = "~/.wisebot/logs/operator.log"
 )
 
 var (
-	wisebotConfigExpandedPath   string
 	wisebotCoreRepoExpandedPath string
 	bleRepoExpandedPath         string
 
@@ -54,27 +54,27 @@ func init() {
 	var err error
 	services = new(ServiceStore)
 
-	wisebotConfigExpandedPath, err = homedir.Expand(wisebotConfigPath)
-	check(err)
-
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
 	// ----- Load wisebot config
-	wisebotConfig, err = loadConfig(wisebotConfigExpandedPath)
+	wisebotConfig, err = loadConfig(wisebotConfigPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
 
-	check(logger.Init(wisebotConfig.WisebotID, sentryDSN))
+	wisebotLogger, err := newFile(wisebotLogPath)
+	check(err)
+	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
 
 	// ----- Initialize MQTT client
 	cert, err := wisebotConfig.getTLSCertificate()
 	check(err)
 
 	mqttClient, err = iot.NewClient(
-		iot.SetHost(iotHost),
+		iot.SetHost(wisebotConfig.AWSIOTHost),
 		iot.SetCertificate(*cert),
+		iot.SetClientID("op-"+wisebotConfig.WisebotID),
 	)
 	check(err)
 }
@@ -92,14 +92,13 @@ func main() {
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
-		nil,
 		wisebotCoreRepo.CurrentHead(),
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
 
 	// ----- Append services to global store
-	services.Save(wisebotServiceName, wisebotCoreCommand, wisebotCoreRepo)
+	services.Save(wisebotCoreServiceName, wisebotCoreCommand, wisebotCoreRepo)
 
 	httpServer = NewHTTPServer()
 	log.Info("Running server on: " + httpServer.Addr)
@@ -152,7 +151,7 @@ func bootstrapServices(update bool) error {
 
 func listenInterrupt(quit chan struct{}) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 
@@ -198,7 +197,15 @@ func bootstrapMQTTClient() error {
 
 func check(err error) {
 	if err != nil {
-		debug.PrintStack()
-		logger.GetLogger().Fatal(err)
+		log := logger.GetLogger()
+
+		switch (err).(type) {
+		case *exec.ExitError:
+			e, _ := (err).(*exec.ExitError)
+			stderr := bytes.TrimSpace(e.Stderr)
+			log.WithField("stderr", string(stderr)).Fatal(err)
+		default:
+			log.Fatal(err)
+		}
 	}
 }

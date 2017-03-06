@@ -29,8 +29,14 @@ const (
 func SetDebug(debug bool) {
 	if debug {
 		MQTT.DEBUG = stdlog.New(os.Stdout, "[MQTT-DEBUG] ", 0)
+		MQTT.CRITICAL = stdlog.New(os.Stdout, "[MQTT-CRITICAL] ", 0)
+		MQTT.WARN = stdlog.New(os.Stdout, "[MQTT-WARN] ", 0)
+		MQTT.ERROR = stdlog.New(os.Stdout, "[MQTT-ERROR] ", 0)
 	} else {
 		MQTT.DEBUG = stdlog.New(ioutil.Discard, "", 0)
+		MQTT.CRITICAL = stdlog.New(ioutil.Discard, "", 0)
+		MQTT.WARN = stdlog.New(ioutil.Discard, "", 0)
+		MQTT.ERROR = stdlog.New(ioutil.Discard, "", 0)
 	}
 }
 
@@ -131,15 +137,13 @@ func NewClient(configs ...Config) (*Client, error) {
 		config(client)
 	}
 
-	client.clientOptions = &MQTT.ClientOptions{
-		ClientID:             client.id,
-		CleanSession:         true,
-		AutoReconnect:        true,
-		MaxReconnectInterval: 1 * time.Second,
-		KeepAlive:            30 * time.Second,
-		TLSConfig:            tls.Config{Certificates: []tls.Certificate{client.certificate}},
-		OnConnect:            client.onConnect(),
-	}
+	copts := MQTT.NewClientOptions()
+	copts.SetClientID(client.id)
+	copts.SetMaxReconnectInterval(1 * time.Second)
+	copts.SetOnConnectHandler(client.onConnect())
+	copts.SetTLSConfig(&tls.Config{Certificates: []tls.Certificate{client.certificate}})
+
+	client.clientOptions = copts
 
 	client.clientOptions.AddBroker(client.brokerURL(secureProtocol))
 

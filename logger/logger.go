@@ -1,33 +1,16 @@
 package logger
 
 import (
-	"strings"
+	"io"
 
 	"github.com/Sirupsen/logrus"
 	ravenSentry "github.com/evalphobia/logrus_sentry"
-	elastic "gopkg.in/olivere/elastic.v5"
-	elogrus "gopkg.in/sohlich/elogrus.v2"
 )
 
 var (
-	environment              string
-	elasticsearchURL         string
-	elasticsearchURLProtocol string
-
-	log Logger = logrus.New()
+	environment string
+	log         Logger = logrus.New()
 )
-
-const (
-	elasticsearchIndex = "wisebot-operator"
-)
-
-func init() {
-	if strings.HasPrefix(elasticsearchURL, "https://") {
-		elasticsearchURLProtocol = "https"
-	} else {
-		elasticsearchURLProtocol = "http"
-	}
-}
 
 // Logger is the exposed standard-ish logging interface
 type Logger interface {
@@ -42,7 +25,7 @@ type Logger interface {
 }
 
 // setLogger sets the package level logger
-func setLogger(l *logrus.Entry) {
+func setLogger(l *logrus.Logger) {
 	log = l
 }
 
@@ -52,29 +35,13 @@ func GetLogger() Logger {
 }
 
 // Init initialize the global module logger
-func Init(wisebotID, sentryDSN string) error {
+func Init(out io.Writer, wisebotID, sentryDSN string) error {
 	log := logrus.New()
+	log.Out = out
 
 	log.Level = logrus.DebugLevel
 	if environment == "production" {
 		log.Formatter = &logrus.JSONFormatter{}
-	}
-
-	if len(elasticsearchURL) > 0 {
-		client, err := elastic.NewClient(
-			elastic.SetURL(elasticsearchURL),
-			elastic.SetScheme(elasticsearchURLProtocol),
-			elastic.SetSniff(false),
-		)
-		if err != nil {
-			log.Panic(err)
-		}
-		hook, err := elogrus.NewElasticHook(client, "localhost", logrus.DebugLevel, elasticsearchIndex)
-		if err != nil {
-			return err
-		}
-
-		log.Hooks.Add(hook)
 	}
 
 	if len(sentryDSN) > 0 {
@@ -84,7 +51,7 @@ func Init(wisebotID, sentryDSN string) error {
 			logrus.ErrorLevel,
 		}
 
-		hook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot-id": wisebotID}, levels)
+		hook, err := ravenSentry.NewAsyncWithTagsSentryHook(sentryDSN, map[string]string{"wisebot_id": wisebotID}, levels)
 		if err != nil {
 			return err
 		}
@@ -94,7 +61,7 @@ func Init(wisebotID, sentryDSN string) error {
 		log.Hooks.Add(hook)
 	}
 
-	setLogger(log.WithField("wisebot-id", wisebotID))
+	setLogger(log)
 
 	return nil
 }

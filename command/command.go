@@ -1,10 +1,8 @@
 package command
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -27,13 +25,9 @@ const (
 // Command represents a os level command, which can also receive a logger file
 // in order to dump the output to it.
 type Command struct {
-	Log io.WriteCloser
 	Cmd *exec.Cmd
 
 	Version string
-
-	// Maybe this will help us debugging when a command fails?
-	// stderr *bytes.Buffer
 
 	status   Status
 	execName string
@@ -44,7 +38,7 @@ type Command struct {
 // and returns it. This is handy if you need to restart the process, first
 // you stop it, then clone it, then you start the new cloned process.
 func (c *Command) Clone() *Command {
-	cmd := NewCommand(c.Log, c.Version, c.execName, c.execArgs...)
+	cmd := NewCommand(c.Version, c.execName, c.execArgs...)
 	return cmd
 }
 
@@ -110,22 +104,8 @@ func (c *Command) Status() Status {
 	return c.status
 }
 
-// CloseLog safely close the command's logger. If the logger is just os.Stdout,
-// it does not close it.
-func (c *Command) CloseLog() error {
-	if c.Log == nil || c.Log == os.Stdout {
-		return nil
-	}
-
-	return c.Log.Close()
-}
-
 // Stop stops the command and closes the log file if exists.
 func (c *Command) Stop() error {
-	if c.Log != nil {
-		defer c.CloseLog()
-	}
-
 	if c.status == StatusStopped {
 		return fmt.Errorf("commands: command %q is already stopped", c.Slug())
 	}
@@ -159,34 +139,7 @@ func (c *Command) Wait() error {
 // Start starts the process and pipes the command's output to the log file.
 // If at any point there is an error it also closes the file if exists.
 func (c *Command) Start() error {
-	if c.Log == os.Stdout || c.Log == nil {
-		c.Cmd.Stdout = c.Log
-	} else {
-		out, err := c.Cmd.StdoutPipe()
-		if err != nil {
-			c.CloseLog()
-			return err
-		}
-
-		go func() {
-			for {
-				r := bufio.NewReader(out)
-				l, _, err := r.ReadLine()
-				if err != nil {
-					if err != io.EOF {
-						c.CloseLog()
-						panic(err)
-					}
-				}
-
-				c.Log.Write(l)
-				c.Log.Write([]byte("\n"))
-			}
-		}()
-	}
-
 	if err := c.Cmd.Start(); err != nil {
-		c.CloseLog()
 		return err
 	}
 
@@ -201,9 +154,8 @@ func (c *Command) Success() bool {
 }
 
 // NewCommand returns an initalized command pointer.
-func NewCommand(log io.WriteCloser, version, name string, args ...string) *Command {
+func NewCommand(version, name string, args ...string) *Command {
 	cmd := &Command{
-		Log:     log,
 		Cmd:     exec.Command(name, args...),
 		Version: version,
 

@@ -7,10 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 
 	"github.com/Sirupsen/logrus"
 
 	"github.com/WiseGrowth/wisebot-operator/logger"
+)
+
+const (
+	onOSX = (runtime.GOOS == "darwin")
 )
 
 // Repo represents a git repo, it contains its path and remote. This struct has
@@ -53,7 +58,7 @@ func (r *Repo) MarshalJSON() ([]byte, error) {
 type PostReceiveHook func(*Repo) error
 
 const (
-	upstream = "origin/master"
+	upstream = "origin/development"
 )
 
 // Update runs a git fetch to the `origin` remote, if the origin/master has a
@@ -100,13 +105,6 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 		return "", err
 	}
 
-	cleanCmd := exec.Command("git", "clean", "-f", "-d", "-X")
-	cleanCmd.Dir = r.Path
-
-	log.Info("Cleaning")
-	if err := cleanCmd.Run(); err != nil {
-		return "", err
-	}
 	log.Info("Update finished")
 	if err := r.runPostReceiveHooks(); err != nil {
 		return "", err
@@ -210,7 +208,10 @@ func sanitizeOutput(b []byte) string {
 // NpmInstallHook is a PostReceiveHook preset that runs a
 // `npm install --production` command.
 func NpmInstallHook(r *Repo) error {
-	npmInstall := exec.Command("npm", "install", "--production")
+	npmInstall := exec.Command("sudo", "npm", "install", "--production")
+	if onOSX {
+		npmInstall = exec.Command("npm", "install", "--production")
+	}
 	npmInstall.Dir = r.Path
 
 	r.logger().Info("Running npm install")
@@ -219,7 +220,10 @@ func NpmInstallHook(r *Repo) error {
 
 // NpmPruneHook is a PostReceiveHook preset that runs a `npm prune` command.
 func NpmPruneHook(r *Repo) error {
-	prune := exec.Command("npm", "prune")
+	prune := exec.Command("sudo", "npm", "prune")
+	if onOSX {
+		prune = exec.Command("npm", "prune")
+	}
 	prune.Dir = r.Path
 
 	r.logger().Info("Running npm prune")

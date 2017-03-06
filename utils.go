@@ -1,9 +1,17 @@
 package main
 
-import "os"
+import (
+	"os"
+
+	homedir "github.com/mitchellh/go-homedir"
+)
 
 func newFile(name string) (*os.File, error) {
-	file, err := os.OpenFile(name, os.O_APPEND|os.O_WRONLY, 0600)
+	expanded, err := homedir.Expand(name)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.OpenFile(expanded, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0744)
 	if err != nil {
 		if os.IsNotExist(err) {
 			file, err = os.Create(name)

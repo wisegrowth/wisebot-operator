@@ -1,6 +1,6 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
-PI_IP=192.168.8.103
+PI_IP=wisebot.pi
 
 GO ?= go
 
@@ -26,6 +26,5 @@ upload:
 	@echo "[upload] Done"
 
 deploy: pi upload
-	@echo "[deploy] Done"
 
 .PHONY: pi build b clean upload deploy run
