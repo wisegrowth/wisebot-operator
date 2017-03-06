@@ -29,11 +29,16 @@ type healthResponse struct {
 
 type healthzMetaResponse struct {
 	WifiStatus wifiStatus `json:"wifi_status"`
+	MQTTStatus mqttStatus `json:"mqtt_status"`
 }
 
 type wifiStatus struct {
 	IsConnected bool   `json:"is_connected"`
 	ESSID       string `json:"essid"`
+}
+
+type mqttStatus struct {
+	IsConnected bool `json:"is_connected"`
 }
 
 func newHealthResponse() *healthResponse {
@@ -43,6 +48,7 @@ func newHealthResponse() *healthResponse {
 	meta := new(healthzMetaResponse)
 	meta.WifiStatus.IsConnected = isConnected
 	meta.WifiStatus.ESSID = currentESSID
+	meta.MQTTStatus.IsConnected = processManager.MQTTClient.IsConnected()
 
 	return &healthResponse{
 		Data: processManager.Services,
