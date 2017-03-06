@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
@@ -32,10 +31,6 @@ func (pm *ProcessManager) KickOff() error {
 	if pm.started {
 		log.Debug("Process already started, ignoring start()")
 		return nil
-	}
-
-	if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
-		log.Error(err)
 	}
 
 	const update = true

@@ -96,26 +96,20 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 	log := getLogger(r)
 	log.Debug(fmt.Sprintf("ESSID: %q Password: %q", network.ESSID, network.Password))
 
-	if err := led.PostNetworkStatus(led.NetworkConnecting); err != nil {
-		log.Error(err)
-	}
+	go notifyInternetWithRetry(led.NetworkConnecting)
 
 	err := rasp.SetupWifi(network)
 	if err == nil {
 		log.Debug("Wifi Connected")
 
-		if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
-			log.Error(err)
-		}
+		go notifyInternetWithRetry(led.NetworkConnected)
 
 		processManager.KickOff()
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	if err := led.PostNetworkStatus(led.NetworkError); err != nil {
-		log.Error(err)
-	}
+	go notifyInternetWithRetry(led.NetworkError)
 
 	if err == rasp.ErrNoWifi {
 		log.Debug("No Wifi")
@@ -161,4 +155,20 @@ func httpLogginMiddleware(w http.ResponseWriter, r *http.Request, next http.Hand
 	log.Debug("Request received")
 	next(w, r)
 	log.WithField("elapsed", time.Since(now).String()).Debug("Request end")
+}
+
+func notifyInternetWithRetry(status led.NetworkStatus) {
+	now := time.Now()
+	log := logger.GetLogger()
+	for {
+		if err := led.PostNetworkStatus(status, now); err != nil {
+			log.Error(err)
+			time.Sleep(3 * time.Second)
+			log.Debug("network connected post failed, retrying")
+			continue
+		}
+
+		log.Debug("network connected posted!")
+		break
+	}
 }

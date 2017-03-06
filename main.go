@@ -14,7 +14,6 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
 	homedir "github.com/mitchellh/go-homedir"
@@ -133,7 +132,6 @@ func main() {
 	if isConnected {
 		check(processManager.KickOff())
 		// This should be removed, since wisebot-core will send this notification
-		go notifyInternet()
 	} else {
 		tick := time.NewTicker(30 * time.Second)
 		go func() {
@@ -145,7 +143,6 @@ func main() {
 						quit <- struct{}{}
 						return
 					}
-					go notifyInternet()
 
 					return
 				}
@@ -157,21 +154,6 @@ func main() {
 	gracefullShutdown()
 	wisebotLogger.Close()
 	log.Info("Done")
-}
-
-func notifyInternet() {
-	log := logger.GetLogger()
-	for {
-		if err := led.PostNetworkStatus(led.NetworkConnected); err != nil {
-			log.Error(err)
-			time.Sleep(2 * time.Second)
-			log.Debug("network connected post failed, retrying")
-			continue
-		}
-
-		log.Debug("network connected posted!")
-		break
-	}
 }
 
 func listenInterrupt(quit chan struct{}) {
