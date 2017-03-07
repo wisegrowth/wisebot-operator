@@ -64,6 +64,7 @@ func healthzHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	payload := newHealthResponse()
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
