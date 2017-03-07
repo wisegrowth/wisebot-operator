@@ -61,6 +61,7 @@ func getLogger(r *http.Request) logger.Logger {
 }
 
 func healthzHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
 	payload := newHealthResponse()
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		getLogger(r).Error(err)
@@ -70,6 +71,7 @@ func healthzHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 }
 
 func getNetworksHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
 	networks, err := rasp.AvailableNetworks()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
