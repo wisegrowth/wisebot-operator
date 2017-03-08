@@ -21,7 +21,7 @@ type ProcessManager struct {
 // are going to fail.
 // Both, subprocesses and messaging client knows how to reconnect when they
 // lose connection, but they must be started while being online.
-func (pm *ProcessManager) KickOff() error {
+func (pm *ProcessManager) KickOff(update bool) error {
 	pm.Lock()
 	defer pm.Unlock()
 
@@ -33,7 +33,6 @@ func (pm *ProcessManager) KickOff() error {
 		return nil
 	}
 
-	const update = true
 	if err := pm.bootstrapServices(update); err != nil {
 		return err
 	}
