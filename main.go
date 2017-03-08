@@ -105,18 +105,13 @@ func main() {
 
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
-		d, err := daemon.NewDaemon("filebeat", nil)
-		check(err)
-		daemonStore.Save(d)
-
-		d, err = daemon.NewDaemon(ledDaemonName, ledDaemonRepo)
+		d, err := daemon.NewDaemon(ledDaemonName, ledDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 	}
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
-		wisebotCoreRepo.CurrentHead(),
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
@@ -159,8 +154,10 @@ func main() {
 
 	quit := make(chan struct{})
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
+	const updateOnBootstrap = true
 	if isConnected {
-		check(processManager.KickOff())
+		check(processManager.KickOff(updateOnBootstrap))
+		check(daemonStore.Bootstrap(updateOnBootstrap))
 		// This should be removed, since wisebot-core will send this notification
 	} else {
 		tick := time.NewTicker(30 * time.Second)
@@ -168,7 +165,12 @@ func main() {
 			for range tick.C {
 				isConnected, _ := rasp.IsConnected()
 				if isConnected {
-					if err := processManager.KickOff(); err != nil {
+					if err := processManager.KickOff(updateOnBootstrap); err != nil {
+						log.Error(err)
+						quit <- struct{}{}
+						return
+					}
+					if err := daemonStore.Bootstrap(updateOnBootstrap); err != nil {
 						log.Error(err)
 						quit <- struct{}{}
 						return
