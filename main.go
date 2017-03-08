@@ -8,10 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
+	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/logger"
@@ -28,11 +30,15 @@ var (
 const (
 	wisebotCoreServiceName = "wisebot-core"
 	wisebotCoreRepoPath    = "~/wisebot-core"
-	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
 
 	bleServiceName = "wisebot-ble"
 	bleRepoPath    = "~/wisebot-ble"
 	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+
+	ledDaemonName       = "led"
+	ledDaemonRepoPath   = "~/wisebot-led-indicator"
+	ledDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
 
 	wisebotConfigPath = "~/.config/wisebot/config.json"
 	wisebotLogPath    = "~/.wisebot/logs/operator.log"
@@ -41,6 +47,7 @@ const (
 var (
 	wisebotCoreRepoExpandedPath string
 	bleRepoExpandedPath         string
+	ledDaemonRepoExpandedPath   string
 
 	wisebotCoreRepo *git.Repo
 	wisebotConfig   *config
@@ -50,13 +57,18 @@ var (
 
 	httpServer     *http.Server
 	processManager *ProcessManager
+	daemonStore    *daemon.Store
 )
 
 func init() {
 	var err error
 	processManager = new(ProcessManager)
+	daemonStore = new(daemon.Store)
 
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
+	check(err)
+
+	ledDaemonRepoExpandedPath, err = homedir.Expand(ledDaemonRepoPath)
 	check(err)
 
 	// ----- Load wisebot config
@@ -77,12 +89,30 @@ func main() {
 	log.Info("Starting")
 
 	// ----- Initialize git repos
+	ledDaemonRepo := git.NewRepo(
+		ledDaemonRepoExpandedPath,
+		ledDaemonRepoRemote,
+		git.NpmInstallHook,
+		git.NpmPruneHook,
+	)
+
 	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
 		git.NpmInstallHook,
 		git.NpmPruneHook,
 	)
+
+	// ----- Initialize daemons
+	if runtime.GOOS != "darwin" {
+		d, err := daemon.NewDaemon("filebeat", nil)
+		check(err)
+		daemonStore.Save(d)
+
+		d, err = daemon.NewDaemon(ledDaemonName, ledDaemonRepo)
+		check(err)
+		daemonStore.Save(d)
+	}
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(

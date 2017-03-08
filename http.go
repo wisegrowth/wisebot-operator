@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
@@ -28,8 +29,9 @@ type healthResponse struct {
 }
 
 type healthzMetaResponse struct {
-	WifiStatus wifiStatus `json:"wifi_status"`
-	MQTTStatus mqttStatus `json:"mqtt_status"`
+	WifiStatus wifiStatus    `json:"wifi_status"`
+	MQTTStatus mqttStatus    `json:"mqtt_status"`
+	Daemons    *daemon.Store `json:"daemons"`
 }
 
 type wifiStatus struct {
@@ -49,6 +51,7 @@ func newHealthResponse() *healthResponse {
 	meta.WifiStatus.IsConnected = isConnected
 	meta.WifiStatus.ESSID = currentESSID
 	meta.MQTTStatus.IsConnected = processManager.MQTTClient.IsConnected()
+	meta.Daemons = daemonStore
 
 	return &healthResponse{
 		Data: processManager.Services,
