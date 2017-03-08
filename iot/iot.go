@@ -86,6 +86,16 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+// IsConnected proxies the function call to the MQTT.Client, but first checks if
+// the client is not nil.
+func (c *Client) IsConnected() bool {
+	if c.Client == nil {
+		return false
+	}
+
+	return c.Client.IsConnected()
+}
+
 // Disconnect proxies the function call to the MQTT.Client, but first checks if
 // the client is not nil.
 func (c *Client) Disconnect(quiesce uint) {

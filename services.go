@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
@@ -77,8 +77,8 @@ func (ss *ServiceStore) MarshalJSON() ([]byte, error) {
 	return json.Marshal(svcs)
 }
 
-func (s *Service) logger() *log.Entry {
-	return logger.GetLogger().WithFields(log.Fields{
+func (s *Service) logger() *logrus.Entry {
+	return logger.GetLogger().WithFields(logrus.Fields{
 		"name":            s.Name,
 		"command_version": s.cmd.Version,
 		"status":          s.cmd.Status(),
