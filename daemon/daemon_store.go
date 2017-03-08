@@ -16,17 +16,17 @@ type Store struct {
 
 // MarshalJSON implements json marshal interface
 func (s *Store) MarshalJSON() ([]byte, error) {
-	svcs := make([]Daemon, len(s.list))
+	daemons := make([]Daemon, len(s.list))
 
 	i := 0
-	for _, svc := range s.list {
+	for _, daemon := range s.list {
 		s.mu.RLock()
-		svcs[i] = svc
+		daemons[i] = daemon
 		i++
 		s.mu.RUnlock()
 	}
 
-	return json.Marshal(svcs)
+	return json.Marshal(daemons)
 }
 
 // Find looks the service in the list by its name. If the service does not
@@ -44,8 +44,8 @@ func (s *Store) Bootstrap(update bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for _, svc := range s.list {
-		if err := svc.Bootstrap(update); err != nil {
+	for _, daemon := range s.list {
+		if err := daemon.Bootstrap(update); err != nil {
 			return err
 		}
 	}
