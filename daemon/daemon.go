@@ -74,7 +74,10 @@ func NewDaemon(name string, r *git.Repo) (Daemon, error) {
 
 // MarshalJSON implements json marshal interface
 func (d *daemon) MarshalJSON() (bytes []byte, err error) {
-	status, _ := d.Status()
+	status, err := d.Status()
+	if err != nil {
+		logger.GetLogger().Warn(err.Error())
+	}
 
 	return json.Marshal(struct {
 		Name        string `json:"name"`
