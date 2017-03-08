@@ -21,6 +21,7 @@ const (
 	StatusRunning  = "running"
 	StatusUpdating = "updating"
 	StatusStopped  = "stopped"
+	StatusInactive = "inactive"
 )
 
 // errors
@@ -144,6 +145,8 @@ func (d *daemon) Status() (Status, error) {
 	}
 
 	switch systemdStatus {
+	case systemd.ServiceStatusInactive:
+		return StatusInactive, nil
 	case systemd.ServiceStatusIdle:
 		return StatusStopped, nil
 	case systemd.ServiceStatusRunning:
