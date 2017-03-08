@@ -87,13 +87,25 @@ func (pm *ProcessManager) bootstrapMQTTClient() error {
 	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/healthz", healthzMQTTHandler); err != nil {
 		return err
 	}
-	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/start", startCommandMQTTHandler); err != nil {
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/service-start", startServiceMQTTHandler); err != nil {
 		return err
 	}
-	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/stop", stopCommandMQTTHandler); err != nil {
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/service-stop", stopServiceMQTTHandler); err != nil {
 		return err
 	}
-	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/process-update", updateCommandMQTTHandler); err != nil {
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/service-update", updateServiceMQTTHandler); err != nil {
+		return err
+	}
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/daemon-start", startDaemonMQTTHandler); err != nil {
+		return err
+	}
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/daemon-stop", stopDaemonMQTTHandler); err != nil {
+		return err
+	}
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/daemon-update", updateDaemonMQTTHandler); err != nil {
+		return err
+	}
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/daemon-restart", restartDaemonMQTTHandler); err != nil {
 		return err
 	}
 
