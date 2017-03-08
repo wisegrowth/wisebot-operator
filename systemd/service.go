@@ -11,9 +11,10 @@ type ServiceStatus string
 
 // Systemd Service Statuses
 const (
-	ServiceStatusIdle    ServiceStatus = "idle"
-	ServiceStatusRunning ServiceStatus = "running"
-	ServiceStatusError   ServiceStatus = "error"
+	ServiceStatusIdle     ServiceStatus = "idle"
+	ServiceStatusInactive ServiceStatus = "inactive"
+	ServiceStatusRunning  ServiceStatus = "running"
+	ServiceStatusError    ServiceStatus = "error"
 )
 
 // Exists checks with systemd if the given service exists.
@@ -49,6 +50,8 @@ func Status(name string) (ServiceStatus, error) {
 
 	out := string(bytes.TrimSpace(stdout.Bytes()))
 	switch out {
+	case "inactive":
+		return ServiceStatusInactive, nil
 	case "failed":
 		return ServiceStatusError, nil
 	case "activating":
