@@ -42,7 +42,8 @@ type Command struct {
 // and returns it. This is handy if you need to restart the process, first
 // you stop it, then clone it, then you start the new cloned process.
 func (c *Command) Clone() *Command {
-	cmd := NewCommand(c.Version, c.execName, c.execArgs...)
+	cmd := NewCommand(c.execName, c.execArgs...)
+	cmd.Version = c.Version
 	return cmd
 }
 
@@ -176,10 +177,9 @@ func (c *Command) Success() bool {
 }
 
 // NewCommand returns an initalized command pointer.
-func NewCommand(version, name string, args ...string) *Command {
+func NewCommand(name string, args ...string) *Command {
 	cmd := &Command{
-		Cmd:     exec.Command(name, args...),
-		Version: version,
+		Cmd: exec.Command(name, args...),
 
 		status:    StatusIdle,
 		execName:  name,
