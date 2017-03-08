@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-
-	"github.com/WiseGrowth/wisebot-operator/systemd"
 )
 
 // Store represents a set of daemons.
@@ -13,12 +11,12 @@ import (
 // commands.
 type Store struct {
 	mu   sync.RWMutex
-	list map[string]*Daemon
+	list map[string]Daemon
 }
 
 // MarshalJSON implements json marshal interface
 func (s *Store) MarshalJSON() ([]byte, error) {
-	svcs := make([]*Daemon, len(s.list))
+	svcs := make([]Daemon, len(s.list))
 
 	i := 0
 	for _, svc := range s.list {
@@ -33,7 +31,7 @@ func (s *Store) MarshalJSON() ([]byte, error) {
 
 // Find looks the service in the list by its name. If the service does not
 // exists, it returns a nil Service and a false value.
-func (s *Store) Find(name string) (daemon *Daemon, ok bool) {
+func (s *Store) Find(name string) (daemon Daemon, ok bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -55,9 +53,8 @@ func (s *Store) Bootstrap(update bool) error {
 	return nil
 }
 
-// Update search the given command in the map and runs its
-// Update function. If the command is not found, an error is
-// returned.
+// Update search the given command in the map and runs its Update function. If
+// the command is not found, an error is returned.
 func (s *Store) Update(name string) error {
 	daemon, ok := s.Find(name)
 
@@ -65,33 +62,33 @@ func (s *Store) Update(name string) error {
 		return fmt.Errorf("daemons: daemon with name %q not found", name)
 	}
 
-	daemon.logger().Info("Running update")
+	daemon.Logger().Info("Running update")
 	updated, err := daemon.Update()
 	if err != nil {
 		return err
 	}
 
 	if !updated {
-		daemon.logger().Info("No new updates")
+		daemon.Logger().Info("No new updates")
 		return nil
 	}
 
-	daemon.logger().Info("Update found, restarting updated daemon")
-	return systemd.Restart(daemon.Name)
+	daemon.Logger().Info("Update found, restarting updated daemon")
+	return daemon.Restart()
 }
 
 // Save initialize the list and add the daemon to it.
-func (s *Store) Save(d *Daemon) *Daemon {
+func (s *Store) Save(d Daemon) Daemon {
 	s.mu.RLock()
 	if s.list == nil {
-		s.list = make(map[string]*Daemon)
+		s.list = make(map[string]Daemon)
 	}
 	s.mu.RUnlock()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.list[d.Name] = d
+	s.list[d.Name()] = d
 
 	return d
 }
@@ -104,8 +101,8 @@ func (s *Store) StartDaemon(name string) error {
 		return fmt.Errorf("daemons: daemon %q not found for starting", name)
 	}
 
-	d.logger().Info("Starting")
-	return systemd.Start(d.Name)
+	d.Logger().Info("Starting")
+	return d.Start()
 }
 
 // StopDaemon stops a specific daemon inside the store.
@@ -116,8 +113,8 @@ func (s *Store) StopDaemon(name string) error {
 		return fmt.Errorf("daemons: daemon %q not found for stopping", name)
 	}
 
-	d.logger().Info("Stopping")
-	defer d.logger().Info("Stopped")
+	d.Logger().Info("Stopping")
+	defer d.Logger().Info("Stopped")
 
-	return systemd.Stop(name)
+	return d.Stop()
 }

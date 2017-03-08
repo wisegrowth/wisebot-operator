@@ -1,6 +1,7 @@
 package systemd
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 )
@@ -10,31 +11,53 @@ type ServiceStatus string
 
 // Systemd Service Statuses
 const (
-	ServiceStatusIdle     ServiceStatus = "idle"
-	ServiceStatusRunning  ServiceStatus = "running"
-	ServiceStatusError    ServiceStatus = "error"
-	ServiceStatusUpdating ServiceStatus = "updating"
-	ServiceStatusDone     ServiceStatus = "succeed"
-	ServiceStatusStopped  ServiceStatus = "stopped"
+	ServiceStatusIdle    ServiceStatus = "idle"
+	ServiceStatusRunning ServiceStatus = "running"
+	ServiceStatusError   ServiceStatus = "error"
 )
 
 // Exists checks with systemd if the given service exists.
 func Exists(name string) bool {
-	// TODO: implement
-	return false
+	stdout := &bytes.Buffer{}
+	status := exec.Command("sudo", "systemctl", "status", name)
+	status.Stdout = stdout
+
+	status.Run()
+
+	if bytes.Contains(stdout.Bytes(), []byte(`Loaded: not-found`)) {
+		return false
+	}
+
+	return true
 }
 
 // Status returns service status by asking systemd.
 func Status(name string) (ServiceStatus, error) {
-	out, err := exec.Command("sudo", "systemctl", "status", name).Output()
-	if err != nil {
-		return "", err
+	stdout := &bytes.Buffer{}
+
+	isActive := exec.Command("sudo", "systemctl", "is-active", name)
+	isActive.Stdout = stdout
+
+	err := isActive.Run()
+	if err == nil {
+		return ServiceStatusRunning, nil
 	}
 
-	// TODO: parse output and check the service status
-	fmt.Println(string(out))
+	if _, ok := err.(*exec.ExitError); !ok {
+		return ServiceStatusError, err
+	}
 
-	return ServiceStatusIdle, nil
+	out := string(bytes.TrimSpace(stdout.Bytes()))
+	switch out {
+	case "failed":
+		return ServiceStatusError, nil
+	case "activating":
+		return ServiceStatusRunning, nil
+	case "unknown":
+		return ServiceStatusIdle, nil
+	default:
+		return "", fmt.Errorf("unknown status received from systemd: %q", out)
+	}
 }
 
 // Start starts the service by telling systemd to start it.
