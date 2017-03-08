@@ -118,3 +118,15 @@ func (s *Store) StopDaemon(name string) error {
 
 	return d.Stop()
 }
+
+// RestartDaemon restart a specific daemon inside the store.
+// If the daemon is not found in the list, it returns an error.
+func (s *Store) RestartDaemon(name string) error {
+	d, ok := s.Find(name)
+	if !ok {
+		return fmt.Errorf("daemons: daemon %q not found for starting", name)
+	}
+
+	d.Logger().Info("Starting")
+	return d.Restart()
+}
