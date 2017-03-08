@@ -20,7 +20,7 @@ const (
 // Exists checks with systemd if the given service exists.
 func Exists(name string) bool {
 	stdout := &bytes.Buffer{}
-	status := exec.Command("sudo", "systemctl", "status", name)
+	status := exec.Command("systemctl", "status", name)
 	status.Stdout = stdout
 
 	status.Run()
@@ -36,7 +36,7 @@ func Exists(name string) bool {
 func Status(name string) (ServiceStatus, error) {
 	stdout := &bytes.Buffer{}
 
-	isActive := exec.Command("sudo", "systemctl", "is-active", name)
+	isActive := exec.Command("systemctl", "is-active", name)
 	isActive.Stdout = stdout
 
 	err := isActive.Run()
