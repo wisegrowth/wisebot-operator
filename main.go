@@ -92,15 +92,13 @@ func main() {
 	ledDaemonRepo := git.NewRepo(
 		ledDaemonRepoExpandedPath,
 		ledDaemonRepoRemote,
-		git.NpmInstallHook,
-		git.NpmPruneHook,
+		git.YarnInstallHook,
 	)
 
 	wisebotCoreRepo = git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
-		git.NpmInstallHook,
-		git.NpmPruneHook,
+		git.YarnInstallHook,
 	)
 
 	// ----- Initialize daemons

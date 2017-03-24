@@ -8,6 +8,12 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
+// actionPayload represents the received payload for starting, stoping and
+// restarting daemons and services.
+type actionPayload struct {
+	Name string `json:"name"`
+}
+
 func healthzMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	topic := message.Topic()
 
@@ -29,18 +35,14 @@ func startServiceMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer publishHealthz(client, log)
 	log.Info("Message received")
 
-	payload := struct {
-		Service struct {
-			Name string `json:"name"`
-		} `json:"service"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := processManager.Services.StartService(payload.Service.Name); err != nil {
+	if err := processManager.Services.StartService(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -53,18 +55,14 @@ func startDaemonMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer publishHealthz(client, log)
 	log.Info("Message received")
 
-	payload := struct {
-		Daemon struct {
-			Name string `json:"name"`
-		} `json:"daemon"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := daemonStore.StartDaemon(payload.Daemon.Name); err != nil {
+	if err := daemonStore.StartDaemon(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -78,18 +76,14 @@ func stopServiceMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 	log.Info("Message received")
 
-	payload := struct {
-		Service struct {
-			Name string `json:"name"`
-		} `json:"service"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := processManager.Services.StopService(payload.Service.Name); err != nil {
+	if err := processManager.Services.StopService(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -103,18 +97,14 @@ func stopDaemonMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 	log.Info("Message received")
 
-	payload := struct {
-		Daemon struct {
-			Name string `json:"name"`
-		} `json:"daemon"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := daemonStore.StopDaemon(payload.Daemon.Name); err != nil {
+	if err := daemonStore.StopDaemon(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -128,18 +118,14 @@ func updateServiceMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 	log.Info("Message received")
 
-	payload := struct {
-		Service struct {
-			Name string `json:"name"`
-		} `json:"service"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := processManager.Services.Update(payload.Service.Name); err != nil {
+	if err := processManager.Services.Update(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -153,18 +139,14 @@ func updateDaemonMQTTHandler(client MQTT.Client, message MQTT.Message) {
 
 	log.Info("Message received")
 
-	payload := struct {
-		Daemon struct {
-			Name string `json:"name"`
-		} `json:"daemon"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := daemonStore.Update(payload.Daemon.Name); err != nil {
+	if err := daemonStore.Update(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}
@@ -177,18 +159,14 @@ func restartDaemonMQTTHandler(client MQTT.Client, message MQTT.Message) {
 	defer publishHealthz(client, log)
 	log.Info("Message received")
 
-	payload := struct {
-		Daemon struct {
-			Name string `json:"name"`
-		} `json:"daemon"`
-	}{}
+	payload := new(actionPayload)
 
 	if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 		log.Error(err)
 		return
 	}
 
-	if err := daemonStore.RestartDaemon(payload.Daemon.Name); err != nil {
+	if err := daemonStore.RestartDaemon(payload.Name); err != nil {
 		log.Error(err)
 		return
 	}

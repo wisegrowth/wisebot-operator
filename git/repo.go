@@ -217,17 +217,14 @@ func sanitizeOutput(b []byte) string {
 	return string(bytes.TrimSpace(b))
 }
 
-// NpmInstallHook is a PostReceiveHook preset that runs a
-// `npm install --production` command.
-func NpmInstallHook(r *Repo) error {
-	npmInstall := exec.Command("sudo", "npm", "install", "--production", "--unsafe-perm")
-	if onOSX {
-		npmInstall = exec.Command("npm", "install", "--production")
-	}
-	npmInstall.Dir = r.Path
+// YarnInstallHook is a PostReceiveHook preset that runs a
+// `yarn install --production` command.
+func YarnInstallHook(r *Repo) error {
+	yarnInstall := exec.Command("yarn", "install", "--production")
+	yarnInstall.Dir = r.Path
 
-	r.logger().Info("Running npm install")
-	return npmInstall.Run()
+	r.logger().Info("Running yarn install")
+	return yarnInstall.Run()
 }
 
 // NpmPruneHook is a PostReceiveHook preset that runs a `npm prune` command.

@@ -17,6 +17,8 @@ type Service struct {
 	Name string
 	cmd  *command.Command
 	repo *git.Repo
+
+	sync.Mutex // guards Update and Bootstrap functions.
 }
 
 func newService(name string, c *command.Command, r *git.Repo) *Service {
@@ -40,11 +42,18 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 
 // Update proxies function to the its command.
 func (s *Service) Update() (bool, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.cmd.SetStatus(command.StatusUpdating)
 	return s.cmd.Update(s.repo)
 }
 
 // Bootstrap proxies function to the its repo.
 func (s *Service) Bootstrap(update bool) error {
+	s.Lock()
+	defer s.Unlock()
+
 	if err := s.repo.Bootstrap(update); err != nil {
 		return err
 	}
@@ -123,7 +132,6 @@ func (ss *ServiceStore) Update(name string) error {
 	cmd := svc.cmd
 
 	svc.logger().Info("Running update")
-	cmd.SetStatus(command.StatusUpdating)
 	updated, err := svc.Update()
 	if err != nil {
 		svc.cmd.SetStatus(command.StatusRunning)
