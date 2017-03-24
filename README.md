@@ -57,7 +57,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "service": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -69,7 +69,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "service": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -81,7 +81,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "service": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -93,7 +93,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "daemon": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -105,7 +105,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "daemon": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -117,7 +117,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "daemon": { "name": "core" }
+  "name": "core"
 }
 ```
 
@@ -129,7 +129,7 @@ THe operator will be listening the following topics.
 
 ```js
 {
-  "daemon": { "name": "core" }
+  "name": "core"
 }
 ```
 ------
