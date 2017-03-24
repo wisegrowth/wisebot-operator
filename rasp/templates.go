@@ -12,7 +12,17 @@ network={
     scan_ssid=1
     key_mgmt=[[if .IsWPA ]]WPA-PSK[[else]]NONE[[end]]
     [[if .Password]][[if .IsWPA ]]psk[[else]]wep_key0[[end]]="[[.Password]]"[[end]]
+    priority=1
 	}
+
+network={
+    ssid="wisegrowth-420"
+    scan_ssid=1
+    key_mgmt=WPA-PSK
+    psk="wisegrowth-420"
+    priority=5
+	}
+
 `
 )
 
