@@ -32,26 +32,25 @@ const (
 	wisebotCoreRepoPath    = "~/wisebot-core"
 	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
 
-	bleServiceName = "wisebot-ble"
-	bleRepoPath    = "~/wisebot-ble"
-	bleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+	wisebotBleServiceName = "wisebot-ble"
+	wisebotBleRepoPath    = "~/wisebot-ble"
+	wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
-	ledDaemonName       = "led"
-	ledDaemonRepoPath   = "~/wisebot-led-indicator"
-	ledDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
+	wisebotLedDaemonName       = "led"
+	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
+	wisebotLedDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
 
 	wisebotConfigPath = "~/.config/wisebot/config.json"
 	wisebotLogPath    = "~/.wisebot/logs/operator.log"
 )
 
 var (
-	wisebotCoreRepoExpandedPath string
-	bleRepoExpandedPath         string
-	ledDaemonRepoExpandedPath   string
+	wisebotCoreRepoExpandedPath      string
+	wisebotBleRepoExpandedPath       string
+	wisebotLedDaemonRepoExpandedPath string
 
-	wisebotCoreRepo *git.Repo
-	wisebotConfig   *config
-	wisebotLogger   io.WriteCloser
+	wisebotConfig *config
+	wisebotLogger io.WriteCloser
 
 	healthzPublishableTopic string
 
@@ -68,7 +67,7 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
-	ledDaemonRepoExpandedPath, err = homedir.Expand(ledDaemonRepoPath)
+	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
 
 	// ----- Load wisebot config
@@ -90,20 +89,26 @@ func main() {
 
 	// ----- Initialize git repos
 	ledDaemonRepo := git.NewRepo(
-		ledDaemonRepoExpandedPath,
-		ledDaemonRepoRemote,
+		wisebotLedDaemonRepoExpandedPath,
+		wisebotLedDaemonRepoRemote,
 		git.YarnInstallHook,
 	)
 
-	wisebotCoreRepo = git.NewRepo(
+	coreRepo := git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
 		git.YarnInstallHook,
 	)
 
+	bleRepo := git.NewRepo(
+		wisebotBleRepoPath,
+		wisebotBleRepoRemote,
+		git.YarnInstallHook,
+	)
+
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
-		d, err := daemon.NewDaemon(ledDaemonName, ledDaemonRepo)
+		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 	}
@@ -112,6 +117,10 @@ func main() {
 	wisebotCoreCommand := command.NewCommand(
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
+	)
+	wisebotBleCommand := command.NewCommand(
+		"node",
+		wisebotBleRepoExpandedPath+"/build/app/index.js",
 	)
 
 	// ----- Initialize MQTT client
@@ -135,7 +144,8 @@ func main() {
 
 	// ----- Append services to global store
 	services := new(ServiceStore)
-	services.Save(wisebotCoreServiceName, wisebotCoreCommand, wisebotCoreRepo)
+	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
+	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
