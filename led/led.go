@@ -38,6 +38,38 @@ func (ns NetworkStatus) String() string {
 	return "unknown-status"
 }
 
+// PostServiceExitError sends a request to the led service acknowledging that
+// a service exited with error.
+func PostServiceExitError(name string, when time.Time) error {
+	payload := struct {
+		Name      string `json:"name"`
+		Status    string `json:"status"`
+		Timestamp int64
+	}{
+		Name:      name,
+		Status:    "error",
+		Timestamp: timeToTimestamp(when),
+	}
+
+	bf := new(bytes.Buffer)
+	if err := json.NewEncoder(bf).Encode(payload); err != nil {
+		return err
+	}
+
+	urlStr := buildURL("/service")
+	req, err := http.NewRequest("POST", urlStr, bf)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	_, err = client.Do(req)
+
+	return err
+}
+
 // PostNetworkStatus sends a request to the led service acknowledging the
 // wifi status.
 func PostNetworkStatus(status NetworkStatus, when time.Time) error {

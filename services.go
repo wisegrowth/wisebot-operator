@@ -4,25 +4,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
+	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // Service encapsulates a command an its repository
 type Service struct {
-	Name string
-	cmd  *command.Command
-	repo *git.Repo
+	Name     string
+	cmd      *command.Command
+	repo     *git.Repo
+	finished chan error    // command error
+	stop     chan struct{} // stop command watcher
 
 	sync.Mutex // guards Update and Bootstrap functions.
 }
 
 func newService(name string, c *command.Command, r *git.Repo) *Service {
-	return &Service{Name: name, cmd: c, repo: r}
+	svc := &Service{Name: name, cmd: c, repo: r}
+	svc.finished = make(chan error, 1)
+	c.Finish = svc.finished
+
+	return svc
 }
 
 // MarshalJSON implements json marshal interface
@@ -38,6 +46,18 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 		Status:      s.cmd.Status(),
 		RepoVersion: s.repo.CurrentHead(),
 	})
+}
+
+// Start runs the service observe function in background and then proxies the
+// Start function call to its internal command struct.
+func (s *Service) Start() error {
+	go s.observe()
+	return s.cmd.Start()
+}
+
+// Stop proxies function to the its command.
+func (s *Service) Stop() error {
+	return s.cmd.Stop()
 }
 
 // Update proxies function to the its command.
@@ -63,9 +83,44 @@ func (s *Service) Bootstrap(update bool) error {
 	return nil
 }
 
-// ServiceStore represents a set of commands.
-// It has convinient methods to run and stop all
-// commands.
+// observe observes if the internal service command exited with error or not.
+// If the command exited with error, it notifies the led service.
+func (s *Service) observe() {
+	log := s.logger()
+	log.Info("Start observing")
+	running := true
+	for running {
+		select {
+		case err := <-s.finished:
+			if err != nil {
+				go notifyServiceExitErrorWithRetry(s)
+			}
+			running = false
+		}
+	}
+	log.Info("Stop observing")
+}
+
+// notifyInternetWithRetry calls led.PostServiceExitError until exits without
+// error. The retry interval is 3 seconds.
+func notifyServiceExitErrorWithRetry(s *Service) {
+	now := time.Now()
+	log := s.logger()
+	for {
+		if err := led.PostServiceExitError(s.Name, now); err != nil {
+			log.Error(err)
+			time.Sleep(3 * time.Second)
+			log.Debug("service exited error post failed, retrying")
+			continue
+		}
+
+		log.Debug("service exited error posted!")
+		break
+	}
+}
+
+// ServiceStore represents a set of commands. It has convinient methods to run
+// and stop all commands.
 type ServiceStore struct {
 	mu   sync.RWMutex
 	list map[string]*Service
@@ -119,9 +174,8 @@ func (ss *ServiceStore) Bootstrap(update bool) error {
 	return nil
 }
 
-// Update search the given command in the map and runs its
-// Update function. If the command is not found, an error is
-// returned.
+// Update search the given command in the map and runs its Update function. If
+// the command is not found, an error is returned.
 func (ss *ServiceStore) Update(name string) error {
 	svc, ok := ss.Find(name)
 
@@ -177,8 +231,8 @@ func (ss *ServiceStore) Save(name string, c *command.Command, r *git.Repo) *Serv
 	return s
 }
 
-// StartService starts a specific service inside the store.
-// If the service is not found in the list, it returns an error.
+// StartService starts a specific service inside the store. If the service is
+// not found in the list, it returns an error.
 func (ss *ServiceStore) StartService(name string) error {
 	svc, ok := ss.Find(name)
 	if !ok {
@@ -192,18 +246,18 @@ func (ss *ServiceStore) StartService(name string) error {
 	}
 
 	svc.logger().Info("Starting")
-	return svc.cmd.Start()
+	return svc.Start()
 }
 
-// Start starts all the commands inside the command list by
-// looping and calling each command Start function.
+// Start starts all the commands inside the command list by looping and calling
+// each command Start function.
 func (ss *ServiceStore) Start() error {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
 	for _, svc := range ss.list {
 		svc.logger().Info("Starting")
-		if err := svc.cmd.Start(); err != nil {
+		if err := svc.Start(); err != nil {
 			return err
 		}
 	}
@@ -211,8 +265,8 @@ func (ss *ServiceStore) Start() error {
 	return nil
 }
 
-// StopService stops a specific service inside the store.
-// If the service is not found in the list, it returns an error.
+// StopService stops a specific service inside the store. If the service is not
+// found in the list, it returns an error.
 func (ss *ServiceStore) StopService(name string) error {
 	svc, ok := ss.Find(name)
 	if !ok {
@@ -221,18 +275,18 @@ func (ss *ServiceStore) StopService(name string) error {
 
 	svc.logger().Info("Stopping")
 	defer svc.logger().Info("Stopped")
-	return svc.cmd.Stop()
+	return svc.Stop()
 }
 
-// Stop stops all the services inside the store by
-// looping and calling each service command's Stop function.
+// Stop stops all the services inside the store by looping and calling each
+// service command's Stop function.
 func (ss *ServiceStore) Stop() error {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
 	for _, svc := range ss.list {
 		svc.logger().Info("Stopping")
-		if err := svc.cmd.Stop(); err != nil {
+		if err := svc.Stop(); err != nil {
 			return err
 		}
 	}
