@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/led"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/rasp"
@@ -23,8 +24,13 @@ const (
 )
 
 type healthResponse struct {
-	Data *ServiceStore        `json:"data"`
+	Data *healthzDataResponse `json:"data"`
 	Meta *healthzMetaResponse `json:"meta"`
+}
+
+type healthzDataResponse struct {
+	Services *ServiceStore `json:"services"`
+	Daemons  *daemon.Store `json:"daemons"`
 }
 
 type healthzMetaResponse struct {
@@ -45,13 +51,17 @@ func newHealthResponse() *healthResponse {
 	isConnected, _ := rasp.IsConnected()
 	currentESSID, _ := rasp.CurrentConfiguredNetworkESSID()
 
+	data := new(healthzDataResponse)
+	data.Services = processManager.Services
+	data.Daemons = daemonStore
+
 	meta := new(healthzMetaResponse)
 	meta.WifiStatus.IsConnected = isConnected
 	meta.WifiStatus.ESSID = currentESSID
 	meta.MQTTStatus.IsConnected = processManager.MQTTClient.IsConnected()
 
 	return &healthResponse{
-		Data: processManager.Services,
+		Data: data,
 		Meta: meta,
 	}
 }
@@ -107,7 +117,9 @@ func updateNetworkHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprout
 
 		go notifyInternetWithRetry(led.NetworkConnected)
 
-		processManager.KickOff()
+		const updateOnBootstrap = true
+		processManager.KickOff(updateOnBootstrap)
+		daemonStore.Bootstrap(updateOnBootstrap)
 		w.WriteHeader(http.StatusOK)
 		return
 	}

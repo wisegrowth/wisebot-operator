@@ -10,24 +10,32 @@ PS: *This is under development*
 
 ### Subscribable topics
 
-#### Current Status
+#### Healthz - Current Status
 
-| Topic to Subscribe | Payload |
+The operator will subscribe to the following topic:
+
+| Topic | Payload |
 |:-----:|:---:|
 |`/operator/:wisebot-id/healthz`| Empty Payload |
 
-After this event we publish the following message with all the operator's process current information:
+In order to react to this event, the operator will publish the following message with all the operator's processes current information:
 
 **Route**: `/operator/:wisebot-id/healthz:response`
 
-**Expected Payload**:
+**Message Payload**:
 
 ```json
 {
-  "data": [
-    { "name": "core", "status": "running", "version": "e3b1730", "repo_version": "e3b1730" },
-    { "name": "ble", "status": "updating", "version": "db0ba56", "repo_version": "fddc960" },
-  ],
+  "data": {
+    "services": [
+      { "name": "core", "status": "running", "version": "e3b1730", "repo_version": "e3b1730" },
+      { "name": "ble", "status": "updating", "version": "db0ba56", "repo_version": "fddc960" }
+    ],
+    "daemons": [
+      { "name": "led", "status": "running", "repo_version": "e3b1730" },
+      { "name": "filebeat", "status": "running", "repo_version": "" }
+    ],
+  },
   "meta": {
     "wifi_status": { "is_connected": true, "essid": "foo bar house" },
     "mqtt_status": { "is_connected": false }
@@ -35,66 +43,95 @@ After this event we publish the following message with all the operator's proces
 }
 ```
 
-#### Update
-
-This task should not replace the current process until the wisebot stop making usage of actionators as water pump, etc.
-
-| Topic to Subscribe | Payload |
-|:-----:|:---:|
-|`/operator/:wisebot-id/update`| Empty Payload |
-
-#### Start
-
-| Topic to Subscribe | Payload |
-|:-----:|:---:|
-|`/operator/:wisebot-id/start`| Empty Payload |
-
-#### Stop
-
-| Topic to Subscribe | Payload |
-|:-----:|:---:|
-|`/operator/:wisebot-id/stop`| Empty Payload |
-
 ### Publishable topics
 
-Each of the following topics will publish to **Route**: `/operator/:wisebot-id/healthz:response` after executing.
+THe operator will be listening the following topics.
 
-#### Start Process
+> Each of the following topics will publish to **Route**: `/operator/:wisebot-id/healthz:response` after executing.
 
-**Route**: `/operator/:wisebot-id/start`
+#### Start Service
 
-**Expected Payload**:
-
-```js
-{
-  "process": { "name": "core" }
-}
-```
-
-#### Stop Process
-
-**Route**: `/operator/:wisebot-id/stop`
+**Route**: `/operator/:wisebot-id/service-start`
 
 **Expected Payload**:
 
 ```js
 {
-  "process": { "name": "core" }
+  "service": { "name": "core" }
 }
 ```
 
-#### Updating Process
+#### Stop Service
 
-**Route**: `/operator/:wisebot-id/process-update`
+**Route**: `/operator/:wisebot-id/service-stop`
 
 **Expected Payload**:
 
 ```js
 {
-  "process": { "name": "core" }
+  "service": { "name": "core" }
 }
 ```
 
+#### Update Service
+
+**Route**: `/operator/:wisebot-id/service-update`
+
+**Expected Payload**:
+
+```js
+{
+  "service": { "name": "core" }
+}
+```
+
+#### Start Daemon
+
+**Route**: `/operator/:wisebot-id/daemon-start`
+
+**Expected Payload**:
+
+```js
+{
+  "daemon": { "name": "core" }
+}
+```
+
+#### Stop Daemon
+
+**Route**: `/operator/:wisebot-id/daemon-stop`
+
+**Expected Payload**:
+
+```js
+{
+  "daemon": { "name": "core" }
+}
+```
+
+#### Restart Daemon
+
+**Route**: `/operator/:wisebot-id/daemon-restart`
+
+**Expected Payload**:
+
+```js
+{
+  "daemon": { "name": "core" }
+}
+```
+
+#### Update Daemon
+
+**Route**: `/operator/:wisebot-id/daemon-update`
+
+**Expected Payload**:
+
+```js
+{
+  "daemon": { "name": "core" }
+}
+```
 ------
 
 ## TODO
