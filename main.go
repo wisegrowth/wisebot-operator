@@ -12,12 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/WiseGrowth/config"
+	"github.com/WiseGrowth/rasp"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
 	"github.com/WiseGrowth/wisebot-operator/logger"
-	"github.com/WiseGrowth/wisebot-operator/rasp"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -49,7 +50,7 @@ var (
 	wisebotBleRepoExpandedPath       string
 	wisebotLedDaemonRepoExpandedPath string
 
-	wisebotConfig *config
+	wisebotConfig *config.Config
 	wisebotLogger io.WriteCloser
 
 	healthzPublishableTopic string
@@ -71,7 +72,7 @@ func init() {
 	check(err)
 
 	// ----- Load wisebot config
-	wisebotConfig, err = loadConfig(wisebotConfigPath)
+	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
@@ -124,7 +125,7 @@ func main() {
 	)
 
 	// ----- Initialize MQTT client
-	cert, err := wisebotConfig.getTLSCertificate()
+	cert, err := wisebotConfig.GetTLSCertificate()
 	check(err)
 
 	mqttClient, err := iot.NewClient(
