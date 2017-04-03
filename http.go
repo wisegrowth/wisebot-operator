@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/WiseGrowth/rasp"
+	"github.com/WiseGrowth/go-wisebot/rasp"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/julienschmidt/httprouter"

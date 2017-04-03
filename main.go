@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/WiseGrowth/config"
-	"github.com/WiseGrowth/rasp"
+	"github.com/WiseGrowth/go-wisebot/config"
+	"github.com/WiseGrowth/go-wisebot/rasp"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/git"
