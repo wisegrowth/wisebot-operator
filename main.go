@@ -23,8 +23,6 @@ import (
 )
 
 var (
-	sentryDSN string
-
 	operatorVersion string
 )
 
@@ -83,7 +81,7 @@ func init() {
 
 func main() {
 	defer wisebotLogger.Close()
-	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
+	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, wisebotConfig.SentryDSN))
 
 	log := logger.GetLogger().WithField("version", operatorVersion)
 	log.Info("Starting")
