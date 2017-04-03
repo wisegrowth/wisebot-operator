@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/WiseGrowth/go-wisebot/config"
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/go-wisebot/rasp"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	"github.com/WiseGrowth/wisebot-operator/logger"
 	homedir "github.com/mitchellh/go-homedir"
 )
 

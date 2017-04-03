@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/WiseGrowth/wisebot-operator/logger"
+	"github.com/WiseGrowth/go-wisebot/logger"
 )
 
 // Status represents the current command status

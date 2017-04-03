@@ -13,7 +13,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"github.com/WiseGrowth/wisebot-operator/logger"
+	"github.com/WiseGrowth/go-wisebot/logger"
 )
 
 const (

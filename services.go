@@ -8,10 +8,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
+	"github.com/WiseGrowth/go-wisebot/led"
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
-	"github.com/WiseGrowth/wisebot-operator/led"
-	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // Service encapsulates a command an its repository

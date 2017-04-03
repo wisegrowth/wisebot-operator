@@ -3,8 +3,8 @@ package main
 import (
 	"sync"
 
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	"github.com/WiseGrowth/wisebot-operator/logger"
 )
 
 // ProcessManager is in charge of starting and stoping the processes.

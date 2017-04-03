@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/go-wisebot/rasp"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
-	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/urfave/negroni"
 )
