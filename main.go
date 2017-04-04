@@ -66,6 +66,9 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
+	wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
+	check(err)
+
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
 
@@ -100,7 +103,7 @@ func main() {
 	)
 
 	bleRepo := git.NewRepo(
-		wisebotBleRepoPath,
+		wisebotBleRepoExpandedPath,
 		wisebotBleRepoRemote,
 		git.YarnInstallHook,
 	)
