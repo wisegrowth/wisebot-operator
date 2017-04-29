@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/WiseGrowth/go-wisebot/logger"
@@ -33,13 +32,11 @@ type Command struct {
 
 	Version string
 
+	status   Status
 	execName string
 	execArgs []string
 
 	exitError chan error
-
-	sync.RWMutex
-	status Status
 }
 
 // Clone clones the command by instantiate a new one with same attributes
@@ -78,9 +75,6 @@ func (c *Command) Slug() string {
 
 // SetStatus sets the command current status
 func (c *Command) SetStatus(status Status) {
-	c.Lock()
-	defer c.Unlock()
-
 	c.status = status
 }
 
@@ -106,9 +100,6 @@ func (c *Command) Update(updater Updater) (updated bool, err error) {
 
 // Status check the command's process state and returns a verbose status.
 func (c *Command) Status() Status {
-	c.RLock()
-	c.RUnlock()
-
 	if c.status == StatusStopped {
 		return c.status
 	}
@@ -135,7 +126,7 @@ func (c *Command) Stop() error {
 		return nil
 	}
 
-	c.SetStatus(StatusStopped)
+	c.status = StatusStopped
 
 	if c.Cmd.Process == nil {
 		log.Debug("Stopped command when c.Cmd.Process was nil")
@@ -172,13 +163,13 @@ func (c *Command) Start() error {
 	go func() {
 		err := c.Wait()
 		if err != nil {
-			c.SetStatus(StatusError)
+			c.status = StatusError
 		}
 		c.exitError <- err
 		c.Finish <- err
 	}()
 
-	c.SetStatus(StatusRunning)
+	c.status = StatusRunning
 
 	return nil
 }
