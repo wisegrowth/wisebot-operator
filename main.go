@@ -164,13 +164,13 @@ func main() {
 
 	quit := make(chan struct{})
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
-	const updateOnBootstrap = true
-	if isConnected {
-		check(processManager.KickOff(updateOnBootstrap))
-		check(daemonStore.Bootstrap(updateOnBootstrap))
-	} else {
+	updateOnBootstrap := isConnected
+	check(processManager.KickOff(updateOnBootstrap))
+	check(daemonStore.Bootstrap(updateOnBootstrap))
+	if !isConnected {
 		tick := time.NewTicker(30 * time.Second)
 		go func() {
+			defer tick.Stop()
 			for range tick.C {
 				isConnected, _ := rasp.IsConnected()
 				if isConnected {
@@ -201,13 +201,15 @@ func listenInterrupt(quit chan struct{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
+		s := <-c
+		logger.GetLogger().WithField("signal", s.String()).Debug("Signal received")
 		quit <- struct{}{}
 	}()
 }
 
 func gracefullShutdown() {
 	log := logger.GetLogger()
+	log.Debug("Gracefully shutdown")
 	if err := httpServer.Shutdown(nil); err != nil {
 		log.Error(err.Error())
 	}
