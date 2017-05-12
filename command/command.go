@@ -107,7 +107,7 @@ func (c *Command) Update(updater Updater) (updated bool, err error) {
 // Status check the command's process state and returns a verbose status.
 func (c *Command) Status() Status {
 	c.mu.RLock()
-	defer c.mu.Unlock()
+	defer c.mu.RUnlock()
 
 	if c.status == StatusStopped {
 		return c.status
