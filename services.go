@@ -186,14 +186,16 @@ func (ss *ServiceStore) Update(name string) error {
 	cmd := svc.cmd
 
 	svc.logger().Info("Running update")
+	oldStatus := svc.cmd.Status()
 	updated, err := svc.Update()
 	if err != nil {
-		svc.cmd.SetStatus(command.StatusRunning)
+		svc.cmd.SetStatus(oldStatus)
 		return err
 	}
 
 	if !updated {
 		svc.logger().Info("No new updates")
+		svc.cmd.SetStatus(oldStatus)
 		return nil
 	}
 
