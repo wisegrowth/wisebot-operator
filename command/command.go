@@ -18,7 +18,7 @@ type Status string
 // Command statuses
 const (
 	StatusIdle         Status = "idle"
-	StatusBootingError Status = "booterror"
+	StatusBootingError Status = "error"
 	StatusRunning      Status = "running"
 	StatusCrashed      Status = "crashed"
 	StatusUpdating     Status = "updating"

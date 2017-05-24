@@ -20,7 +20,7 @@ const (
 	onOSX = (runtime.GOOS == "darwin")
 
 	// upstream must have the following format: remote/branch
-	upstream = "origin/master"
+	upstream = "origin/development"
 )
 
 // Errors

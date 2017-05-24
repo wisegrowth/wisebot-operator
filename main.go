@@ -31,9 +31,9 @@ const (
 	wisebotCoreRepoPath    = "~/wisebot-core"
 	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
 
-	wisebotBleServiceName = "wisebot-ble"
-	wisebotBleRepoPath    = "~/wisebot-ble"
-	wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+	// wisebotBleServiceName = "wisebot-ble"
+	// wisebotBleRepoPath    = "~/wisebot-ble"
+	// wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
 	wisebotLedDaemonName       = "led"
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
@@ -44,8 +44,8 @@ const (
 )
 
 var (
-	wisebotCoreRepoExpandedPath      string
-	wisebotBleRepoExpandedPath       string
+	wisebotCoreRepoExpandedPath string
+	// wisebotBleRepoExpandedPath       string
 	wisebotLedDaemonRepoExpandedPath string
 
 	wisebotConfig *config.Config
@@ -66,8 +66,8 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
-	wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
-	check(err)
+	// wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
+	// check(err)
 
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
@@ -102,11 +102,11 @@ func main() {
 		git.YarnInstallHook,
 	)
 
-	bleRepo := git.NewRepo(
-		wisebotBleRepoExpandedPath,
-		wisebotBleRepoRemote,
-		git.YarnInstallHook,
-	)
+	// bleRepo := git.NewRepo(
+	// 	wisebotBleRepoExpandedPath,
+	// 	wisebotBleRepoRemote,
+	// 	git.YarnInstallHook,
+	// )
 
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
@@ -120,10 +120,10 @@ func main() {
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
-	wisebotBleCommand := command.NewCommand(
-		"node",
-		wisebotBleRepoExpandedPath+"/build/app/index.js",
-	)
+	// wisebotBleCommand := command.NewCommand(
+	// 	"node",
+	// 	wisebotBleRepoExpandedPath+"/build/app/index.js",
+	// )
 
 	// ----- Initialize MQTT client
 	cert, err := wisebotConfig.GetTLSCertificate()
@@ -147,7 +147,7 @@ func main() {
 	// ----- Append services to global store
 	services := new(ServiceStore)
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
-	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
+	// services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
