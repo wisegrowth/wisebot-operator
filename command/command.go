@@ -17,12 +17,13 @@ type Status string
 
 // Command statuses
 const (
-	StatusIdle     Status = "idle"
-	StatusRunning  Status = "running"
-	StatusError    Status = "error"
-	StatusUpdating Status = "updating"
-	StatusDone     Status = "succeed"
-	StatusStopped  Status = "stopped"
+	StatusIdle         Status = "idle"
+	StatusBootingError Status = "booterror"
+	StatusRunning      Status = "running"
+	StatusCrashed      Status = "crashed"
+	StatusUpdating     Status = "updating"
+	StatusDone         Status = "succeed"
+	StatusStopped      Status = "stopped"
 )
 
 // Command represents a os level command, which can also receive a logger file
@@ -118,7 +119,7 @@ func (c *Command) Status() Status {
 			return StatusDone
 		}
 
-		return StatusError
+		return StatusCrashed
 	}
 
 	return c.status
@@ -131,7 +132,7 @@ func (c *Command) Stop() error {
 		return fmt.Errorf("commands: command %q is already stopped", c.Slug())
 	}
 
-	if c.status == StatusError {
+	if c.status == StatusCrashed || c.status == StatusBootingError {
 		return nil
 	}
 
@@ -166,13 +167,14 @@ func (c *Command) Wait() error {
 // If at any point there is an error it also closes the file if exists.
 func (c *Command) Start() error {
 	if err := c.Cmd.Start(); err != nil {
+		c.SetStatus(StatusBootingError)
 		return err
 	}
 
 	go func() {
 		err := c.Wait()
 		if err != nil {
-			c.SetStatus(StatusError)
+			c.SetStatus(StatusCrashed)
 		}
 		c.exitError <- err
 		c.Finish <- err

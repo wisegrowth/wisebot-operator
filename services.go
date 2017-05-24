@@ -242,7 +242,7 @@ func (ss *ServiceStore) StartService(name string) error {
 	}
 
 	status := svc.cmd.Status()
-	if status == command.StatusError || status == command.StatusStopped || status == command.StatusDone {
+	if status == command.StatusCrashed || status == command.StatusBootingError || status == command.StatusStopped || status == command.StatusDone {
 		newCmd := svc.cmd.Clone()
 		svc = ss.Save(svc.Name, newCmd, svc.repo)
 	}
