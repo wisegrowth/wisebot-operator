@@ -8,10 +8,14 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
+	"github.com/WiseGrowth/go-wisebot/led"
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/git"
-	"github.com/WiseGrowth/wisebot-operator/led"
-	"github.com/WiseGrowth/wisebot-operator/logger"
+)
+
+const (
+	maxRetries = 3
 )
 
 // Service encapsulates a command an its repository
@@ -106,11 +110,18 @@ func (s *Service) observe() {
 func notifyServiceExitErrorWithRetry(s *Service) {
 	now := time.Now()
 	log := s.logger()
+	try := 0
 	for {
+		if try == maxRetries {
+			log.Debug("max service exited error post retries reached")
+			break
+		}
+
 		if err := led.PostServiceExitError(s.Name, now); err != nil {
 			log.Error(err)
 			time.Sleep(3 * time.Second)
 			log.Debug("service exited error post failed, retrying")
+			try++
 			continue
 		}
 
@@ -186,14 +197,16 @@ func (ss *ServiceStore) Update(name string) error {
 	cmd := svc.cmd
 
 	svc.logger().Info("Running update")
+	oldStatus := svc.cmd.Status()
 	updated, err := svc.Update()
 	if err != nil {
-		svc.cmd.SetStatus(command.StatusRunning)
+		svc.cmd.SetStatus(oldStatus)
 		return err
 	}
 
 	if !updated {
 		svc.logger().Info("No new updates")
+		svc.cmd.SetStatus(oldStatus)
 		return nil
 	}
 
@@ -240,7 +253,7 @@ func (ss *ServiceStore) StartService(name string) error {
 	}
 
 	status := svc.cmd.Status()
-	if status == command.StatusError || status == command.StatusStopped || status == command.StatusDone {
+	if status == command.StatusCrashed || status == command.StatusBootingError || status == command.StatusStopped || status == command.StatusDone {
 		newCmd := svc.cmd.Clone()
 		svc = ss.Save(svc.Name, newCmd, svc.repo)
 	}

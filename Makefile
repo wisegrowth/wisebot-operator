@@ -1,6 +1,6 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
-PI_IP=wisebot.pi
+PI_IP=192.168.0.30
 
 GO ?= go
 

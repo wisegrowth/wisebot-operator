@@ -12,18 +12,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/WiseGrowth/go-wisebot/config"
+	"github.com/WiseGrowth/go-wisebot/logger"
+	"github.com/WiseGrowth/go-wisebot/rasp"
 	"github.com/WiseGrowth/wisebot-operator/command"
 	"github.com/WiseGrowth/wisebot-operator/daemon"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	"github.com/WiseGrowth/wisebot-operator/logger"
-	"github.com/WiseGrowth/wisebot-operator/rasp"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
 var (
-	sentryDSN string
-
 	operatorVersion string
 )
 
@@ -32,9 +31,9 @@ const (
 	wisebotCoreRepoPath    = "~/wisebot-core"
 	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
 
-	wisebotBleServiceName = "wisebot-ble"
-	wisebotBleRepoPath    = "~/wisebot-ble"
-	wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+	// wisebotBleServiceName = "wisebot-ble"
+	// wisebotBleRepoPath    = "~/wisebot-ble"
+	// wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
 	wisebotLedDaemonName       = "led"
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
@@ -45,11 +44,11 @@ const (
 )
 
 var (
-	wisebotCoreRepoExpandedPath      string
-	wisebotBleRepoExpandedPath       string
+	wisebotCoreRepoExpandedPath string
+	// wisebotBleRepoExpandedPath       string
 	wisebotLedDaemonRepoExpandedPath string
 
-	wisebotConfig *config
+	wisebotConfig *config.Config
 	wisebotLogger io.WriteCloser
 
 	healthzPublishableTopic string
@@ -67,11 +66,14 @@ func init() {
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
+	// wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
+	// check(err)
+
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
 
 	// ----- Load wisebot config
-	wisebotConfig, err = loadConfig(wisebotConfigPath)
+	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
@@ -82,7 +84,7 @@ func init() {
 
 func main() {
 	defer wisebotLogger.Close()
-	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, sentryDSN))
+	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, wisebotConfig.SentryDSN))
 
 	log := logger.GetLogger().WithField("version", operatorVersion)
 	log.Info("Starting")
@@ -100,11 +102,11 @@ func main() {
 		git.YarnInstallHook,
 	)
 
-	bleRepo := git.NewRepo(
-		wisebotBleRepoPath,
-		wisebotBleRepoRemote,
-		git.YarnInstallHook,
-	)
+	// bleRepo := git.NewRepo(
+	// 	wisebotBleRepoExpandedPath,
+	// 	wisebotBleRepoRemote,
+	// 	git.YarnInstallHook,
+	// )
 
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
@@ -118,13 +120,13 @@ func main() {
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
-	wisebotBleCommand := command.NewCommand(
-		"node",
-		wisebotBleRepoExpandedPath+"/build/app/index.js",
-	)
+	// wisebotBleCommand := command.NewCommand(
+	// 	"node",
+	// 	wisebotBleRepoExpandedPath+"/build/app/index.js",
+	// )
 
 	// ----- Initialize MQTT client
-	cert, err := wisebotConfig.getTLSCertificate()
+	cert, err := wisebotConfig.GetTLSCertificate()
 	check(err)
 
 	mqttClient, err := iot.NewClient(
@@ -145,7 +147,7 @@ func main() {
 	// ----- Append services to global store
 	services := new(ServiceStore)
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
-	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
+	// services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
@@ -162,13 +164,13 @@ func main() {
 
 	quit := make(chan struct{})
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
-	const updateOnBootstrap = true
-	if isConnected {
-		check(processManager.KickOff(updateOnBootstrap))
-		check(daemonStore.Bootstrap(updateOnBootstrap))
-	} else {
+	updateOnBootstrap := isConnected
+	check(processManager.KickOff(updateOnBootstrap))
+	check(daemonStore.Bootstrap(updateOnBootstrap))
+	if !isConnected {
 		tick := time.NewTicker(30 * time.Second)
 		go func() {
+			defer tick.Stop()
 			for range tick.C {
 				isConnected, _ := rasp.IsConnected()
 				if isConnected {
@@ -199,13 +201,15 @@ func listenInterrupt(quit chan struct{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
+		s := <-c
+		logger.GetLogger().WithField("signal", s.String()).Debug("Signal received")
 		quit <- struct{}{}
 	}()
 }
 
 func gracefullShutdown() {
 	log := logger.GetLogger()
+	log.Debug("Gracefully shutdown")
 	if err := httpServer.Shutdown(nil); err != nil {
 		log.Error(err.Error())
 	}

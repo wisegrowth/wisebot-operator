@@ -13,14 +13,14 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"github.com/WiseGrowth/wisebot-operator/logger"
+	"github.com/WiseGrowth/go-wisebot/logger"
 )
 
 const (
 	onOSX = (runtime.GOOS == "darwin")
 
 	// upstream must have the following format: remote/branch
-	upstream = "origin/master"
+	upstream = "origin/development"
 )
 
 // Errors

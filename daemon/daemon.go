@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/git"
-	"github.com/WiseGrowth/wisebot-operator/logger"
 	"github.com/WiseGrowth/wisebot-operator/systemd"
 )
 
