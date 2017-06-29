@@ -166,7 +166,6 @@ func main() {
 	if isConnected {
 		check(processManager.KickOff(updateOnBootstrap))
 		check(daemonStore.Bootstrap(updateOnBootstrap))
-		// This should be removed, since wisebot-core will send this notification
 	} else {
 		tick := time.NewTicker(30 * time.Second)
 		go func() {
