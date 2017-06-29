@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/go-wisebot/logger"
+	"github.com/sirupsen/logrus"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
