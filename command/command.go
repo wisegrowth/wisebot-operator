@@ -27,7 +27,8 @@ const (
 // Command represents a os level command, which can also receive a logger file
 // in order to dump the output to it.
 type Command struct {
-	Cmd *exec.Cmd
+	Cmd    *exec.Cmd
+	Finish chan<- error // sends command exit error provided by `exec.Cmd.Wait`
 
 	Version string
 
@@ -44,6 +45,7 @@ type Command struct {
 func (c *Command) Clone() *Command {
 	cmd := NewCommand(c.execName, c.execArgs...)
 	cmd.Version = c.Version
+	cmd.Finish = c.Finish
 	return cmd
 }
 
@@ -164,6 +166,7 @@ func (c *Command) Start() error {
 			c.status = StatusError
 		}
 		c.exitError <- err
+		c.Finish <- err
 	}()
 
 	c.status = StatusRunning
