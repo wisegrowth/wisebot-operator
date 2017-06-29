@@ -14,6 +14,10 @@ import (
 	"github.com/WiseGrowth/wisebot-operator/git"
 )
 
+const (
+	maxRetries = 3
+)
+
 // Service encapsulates a command an its repository
 type Service struct {
 	Name     string
@@ -106,11 +110,18 @@ func (s *Service) observe() {
 func notifyServiceExitErrorWithRetry(s *Service) {
 	now := time.Now()
 	log := s.logger()
+	try := 0
 	for {
+		if try == maxRetries {
+			log.Debug("max service exited error post retries reached")
+			break
+		}
+
 		if err := led.PostServiceExitError(s.Name, now); err != nil {
 			log.Error(err)
 			time.Sleep(3 * time.Second)
 			log.Debug("service exited error post failed, retrying")
+			try++
 			continue
 		}
 
