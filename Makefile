@@ -1,12 +1,14 @@
 APP=operator
 BIN=$(PWD)/bin/$(APP)
 PI_IP=192.168.0.30
+GIT_SHA=`git rev-parse --short HEAD`
 
 GO ?= go
 
 pi: build_for_production.sh clean
 	@echo "[pi] Building..."
-	@sh build_for_production.sh
+	@GOOS=linux GOARM=7 GOARCH=arm $(GO) build -o $(BIN)\
+		-ldflags "-X main.operatorVersion=$(GIT_SHA) -X github.com/WiseGrowth/go-wisebot/logger.environment=production"
 
 build b: clean
 	@echo "[pi] Building..."
