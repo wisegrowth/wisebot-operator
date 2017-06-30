@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/git"
 	"github.com/WiseGrowth/wisebot-operator/systemd"
+	"github.com/sirupsen/logrus"
 )
 
 // Status represents daemon status
