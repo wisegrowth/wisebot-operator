@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"github.com/WiseGrowth/go-wisebot/logger"
 )
@@ -113,6 +113,7 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 
 	log.Info("Update finished")
 	if err := r.runPostReceiveHooks(); err != nil {
+		log.Debugf("Error when running hooks: %s\n", err.Error())
 		return "", err
 	}
 
@@ -220,21 +221,50 @@ func sanitizeOutput(b []byte) string {
 // YarnInstallHook is a PostReceiveHook preset that runs a
 // `yarn install --production` command.
 func YarnInstallHook(r *Repo) error {
+	var bout bytes.Buffer
+	var berr bytes.Buffer
+
 	yarnInstall := exec.Command("yarn", "install", "--production")
 	yarnInstall.Dir = r.Path
+	yarnInstall.Stdout = &bout
+	yarnInstall.Stderr = &berr
 
-	r.logger().Info("Running yarn install")
-	return yarnInstall.Run()
+	if err := yarnInstall.Run(); err != nil {
+		r.logger().WithFields(logrus.Fields{
+			"stdout": bout.String(),
+			"stderr": berr.String(),
+			"err":    err.Error(),
+		}).Debug("Error when running yarn install")
+
+		return err
+	}
+
+	return nil
 }
 
 // NpmPruneHook is a PostReceiveHook preset that runs a `npm prune` command.
 func NpmPruneHook(r *Repo) error {
+	var bout bytes.Buffer
+	var berr bytes.Buffer
+
 	prune := exec.Command("sudo", "npm", "prune")
 	if onOSX {
 		prune = exec.Command("npm", "prune")
 	}
 	prune.Dir = r.Path
+	prune.Stdout = &bout
+	prune.Stderr = &berr
 
 	r.logger().Info("Running npm prune")
-	return prune.Run()
+	if err := prune.Run(); err != nil {
+		r.logger().WithFields(logrus.Fields{
+			"stdout": bout.String(),
+			"stderr": berr.String(),
+			"err":    err.Error(),
+		}).Debug("Error when running npm prune")
+
+		return err
+	}
+
+	return nil
 }

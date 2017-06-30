@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"github.com/WiseGrowth/go-wisebot/led"
 	"github.com/WiseGrowth/go-wisebot/logger"
@@ -97,6 +97,7 @@ func (s *Service) observe() {
 		select {
 		case err := <-s.finished:
 			if err != nil {
+				log.Debugf("Service exited with error: %s\n", err.Error())
 				go notifyServiceExitErrorWithRetry(s)
 			}
 			running = false
@@ -200,6 +201,7 @@ func (ss *ServiceStore) Update(name string) error {
 	oldStatus := svc.cmd.Status()
 	updated, err := svc.Update()
 	if err != nil {
+		svc.logger().Debug("Error when updating")
 		svc.cmd.SetStatus(oldStatus)
 		return err
 	}

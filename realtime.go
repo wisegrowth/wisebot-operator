@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/WiseGrowth/go-wisebot/logger"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/sirupsen/logrus"
 )
 
 // actionPayload represents the received payload for starting, stoping and
