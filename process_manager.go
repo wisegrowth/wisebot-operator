@@ -5,44 +5,65 @@ import (
 
 	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/iot"
+	log "github.com/mgutz/logxi/v1"
 )
 
 // ProcessManager is in charge of starting and stoping the processes.
 type ProcessManager struct {
 	sync.Mutex
-	Services   *ServiceStore
-	MQTTClient *iot.Client
-	started    bool
+	Services                  *ServiceStore
+	MQTTClient                *iot.Client
+	servicesAndDaemonsStarted bool
+	mqttConnectionStarted     bool
 }
 
-// KickOff is a function that kicks off core subprocesses and messaging clients
-// managed by the operator. This function must be called after checking that
-// there is internet connection, otherwise, messaging client and subprocesses
-// are going to fail.
-// Both, subprocesses and messaging client knows how to reconnect when they
-// lose connection, but they must be started while being online.
-func (pm *ProcessManager) KickOff(update bool) error {
+// KickOffServicesAndDaemons is a function that kicks off core subprocesses
+// managed by the operator. `hasInternetConnection` param indicates wether the
+// subprocesses and daemons source code can be updated by git or not.
+// The subprocesses knows how to reconnect when they lose internet connection,
+// so is not necessary to start them while being connected to the internet.
+// The wrong value of `hasInternetConnection` can raise errors, so is mandatory
+// to check if the device is online before executing this method.
+func (pm *ProcessManager) KickOffServicesAndDaemons(hasInternetConnection bool) error {
 	pm.Lock()
 	defer pm.Unlock()
 
 	log := logger.GetLogger()
 	log.Debug("Bootstraping and starting services")
 
-	if pm.started {
-		log.Debug("Process already started, ignoring start()")
+	if pm.servicesAndDaemonsStarted {
+		log.Debug("Process already started, ignoring KickOffServicesAndDaemons()")
 		return nil
 	}
 
-	if err := pm.bootstrapServices(update); err != nil {
+	if err := pm.bootstrapServices(hasInternetConnection); err != nil {
 		return err
 	}
+
+	pm.servicesAndDaemonsStarted = true
+
+	log.Debug("Bootstraping done")
+	return nil
+}
+
+// KickOffMQTTClient kicks off the mqtt operator connection. This function must
+// to be called only if the operator has an internet connection, ergo, the
+// device is online.
+func (pm *ProcessManager) KickOffMQTTClient() error {
+	pm.Lock()
+	defer pm.Unlock()
+
+	if pm.mqttConnectionStarted {
+		log.Debug("Mqtt connection already started, ignoring KickOffMQTTClient()")
+		return nil
+	}
+
 	if err := pm.bootstrapMQTTClient(); err != nil {
 		return err
 	}
 
-	pm.started = true
+	pm.mqttConnectionStarted = true
 
-	log.Debug("Bootstraping done")
 	return nil
 }
 
