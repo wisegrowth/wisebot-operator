@@ -5,7 +5,6 @@ import (
 
 	"github.com/WiseGrowth/go-wisebot/logger"
 	"github.com/WiseGrowth/wisebot-operator/iot"
-	log "github.com/mgutz/logxi/v1"
 )
 
 // ProcessManager is in charge of starting and stoping the processes.
@@ -53,6 +52,9 @@ func (pm *ProcessManager) KickOffMQTTClient() error {
 	pm.Lock()
 	defer pm.Unlock()
 
+	log := logger.GetLogger()
+	log.Debug("Establishing mqtt connection")
+
 	if pm.mqttConnectionStarted {
 		log.Debug("Mqtt connection already started, ignoring KickOffMQTTClient()")
 		return nil
@@ -64,6 +66,7 @@ func (pm *ProcessManager) KickOffMQTTClient() error {
 
 	pm.mqttConnectionStarted = true
 
+	log.Debug("Mqtt connection established")
 	return nil
 }
 
