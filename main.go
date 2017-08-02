@@ -164,28 +164,23 @@ func main() {
 
 	quit := make(chan struct{})
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
-	updateOnBootstrap := isConnected
-	check(processManager.KickOff(updateOnBootstrap))
-	check(daemonStore.Bootstrap(updateOnBootstrap))
-	if !isConnected {
+	updateSourceCode := isConnected
+	check(processManager.KickOffServicesAndDaemons(updateSourceCode))
+	check(daemonStore.Bootstrap(updateSourceCode))
+	if isConnected {
+		check(processManager.KickOffMQTTClient())
+	} else {
 		tick := time.NewTicker(30 * time.Second)
 		go func() {
 			defer tick.Stop()
 			for range tick.C {
 				isConnected, _ := rasp.IsConnected()
 				if isConnected {
-					if err := processManager.KickOff(updateOnBootstrap); err != nil {
+					if err := processManager.KickOffMQTTClient(); err != nil {
 						log.Error(err)
 						quit <- struct{}{}
 						return
 					}
-					if err := daemonStore.Bootstrap(updateOnBootstrap); err != nil {
-						log.Error(err)
-						quit <- struct{}{}
-						return
-					}
-
-					return
 				}
 			}
 		}()
