@@ -35,6 +35,10 @@ const (
 	// wisebotBleRepoPath    = "~/wisebot-ble"
 	// wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
+	wisebotScriptServiceName = "wisebot-script"
+	wisebotScriptRepoPath    = "~/wisebot-script"
+	wisebotScriptRepoRemote  = "git@github.com:wisegrowth/wisebot-script.git"
+
 	wisebotLedDaemonName       = "led"
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
 	wisebotLedDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
@@ -46,6 +50,7 @@ const (
 var (
 	wisebotCoreRepoExpandedPath string
 	// wisebotBleRepoExpandedPath       string
+	wisebotScriptRepoExpandedPath    string
 	wisebotLedDaemonRepoExpandedPath string
 
 	wisebotConfig *config.Config
@@ -68,6 +73,9 @@ func init() {
 
 	// wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
 	// check(err)
+
+	wisebotScriptRepoExpandedPath, err = homedir.Expand(wisebotScriptRepoPath)
+	check(err)
 
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
@@ -108,6 +116,12 @@ func main() {
 	// 	git.YarnInstallHook,
 	// )
 
+	scriptRepo := git.NewRepo(
+		wisebotScriptRepoExpandedPath,
+		wisebotScriptRepoRemote,
+		git.YarnInstallHook,
+	)
+
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
 		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
@@ -120,10 +134,16 @@ func main() {
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
+
 	// wisebotBleCommand := command.NewCommand(
 	// 	"node",
 	// 	wisebotBleRepoExpandedPath+"/build/app/index.js",
 	// )
+
+	wisebotScriptCommand := command.NewCommand(
+		"node",
+		wisebotScriptRepoExpandedPath+"/build/app/index.js",
+	)
 
 	// ----- Initialize MQTT client
 	cert, err := wisebotConfig.GetTLSCertificate()
@@ -148,6 +168,7 @@ func main() {
 	services := new(ServiceStore)
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
 	// services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
+	services.Save(wisebotScriptServiceName, wisebotScriptCommand, scriptRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
