@@ -119,7 +119,6 @@ func main() {
 	scriptRepo := git.NewRepo(
 		wisebotScriptRepoExpandedPath,
 		wisebotScriptRepoRemote,
-		git.YarnInstallHook,
 	)
 
 	// ----- Initialize daemons
