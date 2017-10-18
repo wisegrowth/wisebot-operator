@@ -141,8 +141,7 @@ func main() {
 	// )
 
 	wisebotScriptCommand := command.NewCommand(
-		"node",
-		wisebotScriptRepoExpandedPath+"/build/app/index.js",
+		wisebotScriptRepoExpandedPath + "/wisebot-script",
 	)
 
 	// ----- Initialize MQTT client
