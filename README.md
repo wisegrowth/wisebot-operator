@@ -139,4 +139,4 @@ THe operator will be listening the following topics.
 - [X] Connect to aws iot
 - [ ] Update itself
 - [X] Update core process
-- [ ] Connect with BLE server/service
+- [X] Connect with BLE server/service
