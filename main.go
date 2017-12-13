@@ -39,6 +39,10 @@ const (
 	wisebotScriptRepoPath    = "~/wisebot-script"
 	wisebotScriptRepoRemote  = "git@github.com:wisegrowth/wisebot-script.git"
 
+	wisebotButtonServiceName = "wisebot-button"
+	wisebotButtonRepoPath    = "~/wisebot-button"
+	wisebotButtonRepoRemote  = "git@github.com:wisegrowth/wisebot-button.git"
+
 	wisebotLedDaemonName       = "led"
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
 	wisebotLedDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
@@ -51,6 +55,7 @@ var (
 	wisebotCoreRepoExpandedPath string
 	// wisebotBleRepoExpandedPath       string
 	wisebotScriptRepoExpandedPath    string
+	wisebotButtonRepoExpandedPath    string
 	wisebotLedDaemonRepoExpandedPath string
 
 	wisebotConfig *config.Config
@@ -75,6 +80,9 @@ func init() {
 	// check(err)
 
 	wisebotScriptRepoExpandedPath, err = homedir.Expand(wisebotScriptRepoPath)
+	check(err)
+
+	wisebotButtonRepoExpandedPath, err = homedir.Expand(wisebotButtonRepoPath)
 	check(err)
 
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
@@ -121,6 +129,12 @@ func main() {
 		wisebotScriptRepoRemote,
 	)
 
+	buttonRepo := git.NewRepo(
+		wisebotButtonRepoExpandedPath,
+		wisebotButtonRepoRemote,
+		git.YarnInstallHook,
+	)
+
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
 		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
@@ -141,6 +155,11 @@ func main() {
 
 	wisebotScriptCommand := command.NewCommand(
 		wisebotScriptRepoExpandedPath + "/wisebot-script",
+	)
+
+	wisebotButtonCommand := command.NewCommand(
+		"node",
+		wisebotButtonRepoExpandedPath+"/index.js",
 	)
 
 	// ----- Initialize MQTT client
@@ -167,6 +186,7 @@ func main() {
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
 	// services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 	services.Save(wisebotScriptServiceName, wisebotScriptCommand, scriptRepo)
+	services.Save(wisebotButtonServiceName, wisebotButtonCommand, buttonRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
