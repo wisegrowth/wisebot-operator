@@ -36,6 +36,10 @@ type healthzMetaResponse struct {
 	MQTTStatus mqttStatus `json:"mqtt_status"`
 }
 
+type manageServiceHTTPRequest struct {
+	Name string `json:"name"`
+}
+
 type mqttStatus struct {
 	IsConnected bool `json:"is_connected"`
 }
@@ -62,6 +66,34 @@ func healthzHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.Header().Set("Content-Type", "application/json")
 	payload := newHealthResponse()
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func startServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	payload := new(manageServiceHTTPRequest)
+	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := processManager.Services.StartService(payload.Name); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func stopServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	payload := new(manageServiceHTTPRequest)
+	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := processManager.Services.StopService(payload.Name); err != nil {
 		getLogger(r).Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -95,6 +127,8 @@ func NewHTTPServer() *http.Server {
 	router := httprouter.New()
 
 	router.GET("/healthz", healthzHTTPHandler)
+	router.POST("/service-start", startServiceHTTPHandler)
+	router.POST("/service-stop", stopServiceHTTPHandler)
 
 	addr := fmt.Sprintf(":%d", httpPort)
 	routes := negroni.Wrap(router)
