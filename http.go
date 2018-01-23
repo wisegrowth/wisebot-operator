@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/WiseGrowth/go-wisebot/logger"
@@ -34,6 +35,7 @@ type healthzDataResponse struct {
 
 type healthzMetaResponse struct {
 	MQTTStatus mqttStatus `json:"mqtt_status"`
+	Version    string     `json:"version"`
 }
 
 type manageServiceHTTPRequest struct {
@@ -44,6 +46,10 @@ type mqttStatus struct {
 	IsConnected bool `json:"is_connected"`
 }
 
+type updateHTTPPayload struct {
+	NewVersion string `json:"version"`
+}
+
 func newHealthResponse() *healthResponse {
 	data := new(healthzDataResponse)
 	data.Services = processManager.Services
@@ -51,6 +57,7 @@ func newHealthResponse() *healthResponse {
 
 	meta := new(healthzMetaResponse)
 	meta.MQTTStatus.IsConnected = processManager.MQTTClient.IsConnected()
+	meta.Version = version
 
 	return &healthResponse{
 		Data: data,
@@ -100,6 +107,20 @@ func stopServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter
 	}
 }
 
+func restartServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	payload := new(manageServiceHTTPRequest)
+	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := processManager.Services.RestartService(payload.Name); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func getNetworksHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "application/json")
 	networks, err := rasp.AvailableNetworks()
@@ -116,12 +137,43 @@ func getNetworksHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter
 	}
 }
 
+func updateHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
+	payload := new(updateHTTPPayload)
+	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	updater := NewUpdate(baseURL, version)
+	err := updater.Update(payload.NewVersion)
+	if err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	processManager.Stop()
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//TODO: implement support for daemon without a code's repository
+	exec.Command("sudo", "systemctl", "restart", "operator").Run()
+
+	return
+}
+
 // NewHTTPServer returns an initialized server with the following routes:
 //
 // GET /healthz
-//
-// GET    /networks
-// PATCH  /network
+// POST /service-start
+// POST /service-stop
+// POST /service-restart
+// POST /update
 //
 func NewHTTPServer() *http.Server {
 	router := httprouter.New()
@@ -129,6 +181,8 @@ func NewHTTPServer() *http.Server {
 	router.GET("/healthz", healthzHTTPHandler)
 	router.POST("/service-start", startServiceHTTPHandler)
 	router.POST("/service-stop", stopServiceHTTPHandler)
+	router.POST("/service-restart", restartServiceHTTPHandler)
+	router.POST("/update", updateHTTPHandler)
 
 	addr := fmt.Sprintf(":%d", httpPort)
 	routes := negroni.Wrap(router)
