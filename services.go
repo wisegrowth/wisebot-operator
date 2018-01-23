@@ -293,6 +293,28 @@ func (ss *ServiceStore) StopService(name string) error {
 	return svc.Stop()
 }
 
+// RestartService restarts a specific service inside the store. If the service is not
+// found in the list, it returns an error.
+func (ss *ServiceStore) RestartService(name string) error {
+	svc, ok := ss.Find(name)
+
+	if !ok {
+		return fmt.Errorf("services: service with name %q not found", name)
+	}
+
+	svc.logger().Info("Restarting")
+	if err := svc.Stop(); err != nil {
+		return err
+	}
+
+	cmd := svc.cmd
+	cmd = cmd.Clone()
+	ss.Save(svc.Name, cmd, svc.repo)
+
+	defer svc.logger().Info("Restarted")
+	return cmd.Start()
+}
+
 // Stop stops all the services inside the store by looping and calling each
 // service command's Stop function.
 func (ss *ServiceStore) Stop() error {
