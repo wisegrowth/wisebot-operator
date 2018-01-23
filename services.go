@@ -307,8 +307,7 @@ func (ss *ServiceStore) RestartService(name string) error {
 		return err
 	}
 
-	cmd := svc.cmd
-	cmd = cmd.Clone()
+	cmd := svc.cmd.Clone()
 	ss.Save(svc.Name, cmd, svc.repo)
 
 	defer svc.logger().Info("Restarted")
