@@ -242,6 +242,30 @@ func YarnInstallHook(r *Repo) error {
 	return nil
 }
 
+// NpmInstallHook is a PostReceiveHook preset that runs a
+// `npm install --production` command.
+func NpmInstallHook(r *Repo) error {
+	var bout bytes.Buffer
+	var berr bytes.Buffer
+
+	npmInstall := exec.Command("npm", "install", "--production")
+	npmInstall.Dir = r.Path
+	npmInstall.Stdout = &bout
+	npmInstall.Stderr = &berr
+
+	if err := npmInstall.Run(); err != nil {
+		r.logger().WithFields(logrus.Fields{
+			"stdout": bout.String(),
+			"stderr": berr.String(),
+			"err":    err.Error(),
+		}).Debug("Error when running npm install")
+
+		return err
+	}
+
+	return nil
+}
+
 // NpmPruneHook is a PostReceiveHook preset that runs a `npm prune` command.
 func NpmPruneHook(r *Repo) error {
 	var bout bytes.Buffer
