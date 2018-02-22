@@ -138,6 +138,9 @@ func (pm *ProcessManager) bootstrapMQTTClient() error {
 	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/update", updateOperatorMQTTHandler); err != nil {
 		return err
 	}
+	if err := pm.MQTTClient.Subscribe("/operator/"+wisebotConfig.WisebotID+"/restart", restartOperatorMQTTHandler); err != nil {
+		return err
+	}
 
 	return nil
 }
