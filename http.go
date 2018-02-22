@@ -167,6 +167,14 @@ func updateHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	return
 }
 
+func restartHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	processManager.Stop()
+
+	//TODO: implement support for daemon without a code's repository
+	exec.Command("sudo", "systemctl", "restart", "operator").Run()
+	return
+}
+
 // NewHTTPServer returns an initialized server with the following routes:
 //
 // GET /healthz
@@ -174,6 +182,7 @@ func updateHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 // POST /service-stop
 // POST /service-restart
 // POST /update
+// POST /restart
 //
 func NewHTTPServer() *http.Server {
 	router := httprouter.New()
@@ -183,6 +192,7 @@ func NewHTTPServer() *http.Server {
 	router.POST("/service-stop", stopServiceHTTPHandler)
 	router.POST("/service-restart", restartServiceHTTPHandler)
 	router.POST("/update", updateHTTPHandler)
+	router.POST("/restart", restartHTTPHandler)
 
 	addr := fmt.Sprintf(":%d", httpPort)
 	routes := negroni.Wrap(router)
