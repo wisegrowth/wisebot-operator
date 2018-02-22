@@ -23,17 +23,23 @@ import (
 )
 
 var (
-	operatorVersion string
+	operatorVersion                   string
+	wisebotCoreRepoBranchName         string
+	wisebotBleRepoBranchName          string
+	wisebotScriptRepoBranchName       string
+	wisebotButtonRepoBranchName       string
+	wisebotLedDaemonRepoBranchName    string
+	wisebotTunnelDaemonRepoBranchName string
 )
 
 const (
 	wisebotCoreServiceName = "wisebot-core"
 	wisebotCoreRepoPath    = "~/wisebot-core"
-	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/test.git"
+	wisebotCoreRepoRemote  = "git@github.com:wisegrowth/wisebot-core.git"
 
-	// wisebotBleServiceName = "wisebot-ble"
-	// wisebotBleRepoPath    = "~/wisebot-ble"
-	// wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
+	wisebotBleServiceName = "wisebot-ble"
+	wisebotBleRepoPath    = "~/wisebot-ble"
+	wisebotBleRepoRemote  = "git@github.com:wisegrowth/wisebot-ble.git"
 
 	wisebotScriptServiceName = "wisebot-script"
 	wisebotScriptRepoPath    = "~/wisebot-script"
@@ -47,16 +53,27 @@ const (
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
 	wisebotLedDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
 
+	wisebotTunnelDaemonName       = "ssh-tunnel"
+	wisebotTunnelDaemonRepoPath   = "~/wisebot-tunnel"
+	wisebotTunnelDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-tunnel.git"
+
+	//TODO: should implement support to use NewDaemon without code's repository
+
 	wisebotConfigPath = "~/.config/wisebot/config.json"
 	wisebotLogPath    = "~/.wisebot/logs/operator.log"
+
+	defaultBranchName = "development"
 )
 
 var (
-	wisebotCoreRepoExpandedPath string
-	// wisebotBleRepoExpandedPath       string
-	wisebotScriptRepoExpandedPath    string
-	wisebotButtonRepoExpandedPath    string
-	wisebotLedDaemonRepoExpandedPath string
+	version                             string
+	baseURL                             string
+	wisebotCoreRepoExpandedPath         string
+	wisebotBleRepoExpandedPath          string
+	wisebotScriptRepoExpandedPath       string
+	wisebotButtonRepoExpandedPath       string
+	wisebotLedDaemonRepoExpandedPath    string
+	wisebotTunnelDaemonRepoExpandedPath string
 
 	wisebotConfig *config.Config
 	wisebotLogger io.WriteCloser
@@ -70,14 +87,21 @@ var (
 
 func init() {
 	var err error
+
+	// ----- Load wisebot config
+	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
+	check(err)
+
 	processManager = new(ProcessManager)
 	daemonStore = new(daemon.Store)
 
 	wisebotCoreRepoExpandedPath, err = homedir.Expand(wisebotCoreRepoPath)
 	check(err)
 
-	// wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
-	// check(err)
+	wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
+	check(err)
+	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
+	check(err)
 
 	wisebotScriptRepoExpandedPath, err = homedir.Expand(wisebotScriptRepoPath)
 	check(err)
@@ -85,11 +109,7 @@ func init() {
 	wisebotButtonRepoExpandedPath, err = homedir.Expand(wisebotButtonRepoPath)
 	check(err)
 
-	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
-	check(err)
-
-	// ----- Load wisebot config
-	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
+	wisebotTunnelDaemonRepoExpandedPath, err = homedir.Expand(wisebotTunnelDaemonRepoPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
@@ -102,42 +122,95 @@ func main() {
 	defer wisebotLogger.Close()
 	check(logger.Init(wisebotLogger, wisebotConfig.WisebotID, wisebotConfig.SentryDSN))
 
+	// ----- Validate existence of repositories branch names
+	if len(wisebotConfig.ScriptBranch) == 0 {
+		wisebotScriptRepoBranchName = defaultBranchName
+	} else {
+		wisebotScriptRepoBranchName = wisebotConfig.ScriptBranch
+	}
+
+	if len(wisebotConfig.LedBranch) == 0 {
+		wisebotLedDaemonRepoBranchName = defaultBranchName
+	} else {
+		wisebotLedDaemonRepoBranchName = wisebotConfig.LedBranch
+	}
+
+	if len(wisebotConfig.CoreBranch) == 0 {
+		wisebotCoreRepoBranchName = defaultBranchName
+	} else {
+		wisebotCoreRepoBranchName = wisebotConfig.CoreBranch
+	}
+
+	if len(wisebotConfig.BleBranch) == 0 {
+		wisebotBleRepoBranchName = defaultBranchName
+	} else {
+		wisebotBleRepoBranchName = wisebotConfig.BleBranch
+	}
+
+	if len(wisebotConfig.ButtonBranch) == 0 {
+		wisebotButtonRepoBranchName = defaultBranchName
+	} else {
+		wisebotButtonRepoBranchName = wisebotConfig.ButtonBranch
+	}
+
+	if len(wisebotConfig.TunnelBranch) == 0 {
+		wisebotTunnelDaemonRepoBranchName = defaultBranchName
+	} else {
+		wisebotTunnelDaemonRepoBranchName = wisebotConfig.TunnelBranch
+	}
+
 	log := logger.GetLogger().WithField("version", operatorVersion)
 	log.Info("Starting")
 
 	// ----- Initialize git repos
+	scriptRepo := git.NewRepo(
+		wisebotScriptRepoExpandedPath,
+		wisebotScriptRepoRemote,
+		wisebotScriptRepoBranchName,
+	)
+
 	ledDaemonRepo := git.NewRepo(
 		wisebotLedDaemonRepoExpandedPath,
 		wisebotLedDaemonRepoRemote,
+		wisebotLedDaemonRepoBranchName,
+		git.YarnInstallHook,
+	)
+
+	tunnelDaemonRepo := git.NewRepo(
+		wisebotTunnelDaemonRepoExpandedPath,
+		wisebotTunnelDaemonRepoRemote,
+		wisebotTunnelDaemonRepoBranchName,
 		git.YarnInstallHook,
 	)
 
 	coreRepo := git.NewRepo(
 		wisebotCoreRepoExpandedPath,
 		wisebotCoreRepoRemote,
+		wisebotCoreRepoBranchName,
 		git.YarnInstallHook,
 	)
 
-	// bleRepo := git.NewRepo(
-	// 	wisebotBleRepoExpandedPath,
-	// 	wisebotBleRepoRemote,
-	// 	git.YarnInstallHook,
-	// )
-
-	scriptRepo := git.NewRepo(
-		wisebotScriptRepoExpandedPath,
-		wisebotScriptRepoRemote,
+	bleRepo := git.NewRepo(
+		wisebotBleRepoExpandedPath,
+		wisebotBleRepoRemote,
+		wisebotBleRepoBranchName,
+		git.YarnInstallHook,
 	)
 
 	buttonRepo := git.NewRepo(
 		wisebotButtonRepoExpandedPath,
 		wisebotButtonRepoRemote,
-		git.YarnInstallHook,
+		wisebotButtonRepoBranchName,
+		git.NpmInstallHook,
 	)
 
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
 		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
+		check(err)
+		daemonStore.Save(d)
+
+		d, err = daemon.NewDaemon(wisebotTunnelDaemonName, tunnelDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 	}
@@ -148,16 +221,18 @@ func main() {
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
 
-	// wisebotBleCommand := command.NewCommand(
-	// 	"node",
-	// 	wisebotBleRepoExpandedPath+"/build/app/index.js",
-	// )
+	wisebotBleCommand := command.NewCommand(
+		"node",
+		wisebotBleRepoExpandedPath+"/build/app/index.js",
+	)
 
 	wisebotScriptCommand := command.NewCommand(
-		wisebotScriptRepoExpandedPath + "/wisebot-script",
+		"sudo",
+		wisebotScriptRepoExpandedPath+"/wisebot-script",
 	)
 
 	wisebotButtonCommand := command.NewCommand(
+		"sudo",
 		"node",
 		wisebotButtonRepoExpandedPath+"/index.js",
 	)
@@ -184,7 +259,7 @@ func main() {
 	// ----- Append services to global store
 	services := new(ServiceStore)
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
-	// services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
+	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 	services.Save(wisebotScriptServiceName, wisebotScriptCommand, scriptRepo)
 	services.Save(wisebotButtonServiceName, wisebotButtonCommand, buttonRepo)
 
@@ -204,7 +279,7 @@ func main() {
 	quit := make(chan struct{})
 	log.Debug(fmt.Sprintf("Internet connection: %v", isConnected))
 	updateSourceCode := isConnected
-	check(processManager.KickOffServicesAndDaemons(updateSourceCode))
+	check(processManager.KickOffServices(updateSourceCode))
 	check(daemonStore.Bootstrap(updateSourceCode))
 	if isConnected {
 		check(processManager.KickOffMQTTClient())
