@@ -4,3 +4,4 @@ bin/
 config.json
 *.sh
 *.log
+.vscode/

@@ -227,8 +227,21 @@ func updateOperatorMQTTHandler(client MQTT.Client, message MQTT.Message) {
 		return
 	}
 
-	processManager.Stop()
 	publishHealthz(client, log)
+	processManager.Stop()
+
+	//TODO: implement support for daemon without a code's repository
+	exec.Command("sudo", "systemctl", "restart", "operator").Run()
+
+	return
+}
+
+func restartOperatorMQTTHandler(client MQTT.Client, message MQTT.Message) {
+	topic := message.Topic()
+	log := logger.GetLogger().WithField("topic", topic)
+
+	publishHealthz(client, log)
+	processManager.Stop()
 
 	//TODO: implement support for daemon without a code's repository
 	exec.Command("sudo", "systemctl", "restart", "operator").Run()

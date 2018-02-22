@@ -20,7 +20,7 @@ const (
 	onOSX = (runtime.GOOS == "darwin")
 
 	// upstream must have the following format: remote/branch
-	upstream = "origin/development"
+	upstreamBase = "origin"
 )
 
 // Errors
@@ -34,6 +34,7 @@ var (
 type Repo struct {
 	Path   string `json:"path"`
 	Remote string `json:"remote"`
+	Branch string `json:"branch"`
 
 	name string
 	head string
@@ -42,11 +43,12 @@ type Repo struct {
 }
 
 // NewRepo initialize and returns a repository pointer.
-func NewRepo(repoPath, remote string, postReceiveHooks ...PostReceiveHook) *Repo {
+func NewRepo(repoPath, remote string, branch string, postReceiveHooks ...PostReceiveHook) *Repo {
 	return &Repo{
 		name:             path.Base(repoPath),
 		Path:             repoPath,
 		Remote:           remote,
+		Branch:           upstreamBase + "/" + branch,
 		postReceiveHooks: postReceiveHooks,
 	}
 }
@@ -78,14 +80,12 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 
 	fetch := exec.Command("git", "fetch", "origin")
 	fetch.Dir = r.Path
-
 	if err := fetch.Run(); err != nil {
 		return "", err
 	}
 
-	originHeadCmd := exec.Command("git", "rev-parse", "--short", upstream)
+	originHeadCmd := exec.Command("git", "rev-parse", "--short", r.Branch)
 	originHeadCmd.Dir = r.Path
-
 	originHead, err := originHeadCmd.Output()
 	if err != nil {
 		return "", err
@@ -98,7 +98,7 @@ func (r *Repo) Update() (updatedHeadSHA string, err error) {
 	}
 	log.Info("Update found")
 
-	updateCmd := exec.Command("git", "reset", "--hard", upstream)
+	updateCmd := exec.Command("git", "reset", "--hard", r.Branch)
 	updateCmd.Dir = r.Path
 
 	log = log.WithFields(logrus.Fields{"new_version": oHead})
@@ -153,11 +153,11 @@ func (r *Repo) Bootstrap(wantToUpdate bool) error {
 
 		logger.Info("Clonning")
 
-		branchIndex := strings.Index(upstream, "/")
+		branchIndex := strings.Index(r.Branch, "/")
 		if branchIndex < 1 {
 			return ErrWrongUpstream
 		}
-		branch := upstream[branchIndex+1:]
+		branch := r.Branch[branchIndex+1:]
 		clone := exec.Command("git", "clone", "--single-branch", "--branch", branch, r.Remote, r.Path)
 		clone.Dir = path.Dir(r.Path)
 
