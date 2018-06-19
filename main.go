@@ -28,6 +28,7 @@ var (
 	wisebotBleRepoBranchName          string
 	wisebotScriptRepoBranchName       string
 	wisebotButtonRepoBranchName       string
+	wisebotStorageRepoBranchName      string
 	wisebotLedDaemonRepoBranchName    string
 	wisebotTunnelDaemonRepoBranchName string
 )
@@ -57,6 +58,10 @@ const (
 	wisebotTunnelDaemonRepoPath   = "~/wisebot-tunnel"
 	wisebotTunnelDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-tunnel.git"
 
+	wisebotStorageServiceName = "storage"
+	wisebotStorageRepoPath    = "~/wisebot-storage"
+	wisebotStorageRepoRemote  = "git@github.com:wisegrowth/wisebot-storage.git"
+
 	//TODO: should implement support to use NewDaemon without code's repository
 
 	wisebotConfigPath = "~/.config/wisebot/config.json"
@@ -74,6 +79,7 @@ var (
 	wisebotButtonRepoExpandedPath       string
 	wisebotLedDaemonRepoExpandedPath    string
 	wisebotTunnelDaemonRepoExpandedPath string
+	wisebotStorageRepoExpandedPath      string
 
 	wisebotConfig *config.Config
 	wisebotLogger io.WriteCloser
@@ -110,6 +116,9 @@ func init() {
 	check(err)
 
 	wisebotTunnelDaemonRepoExpandedPath, err = homedir.Expand(wisebotTunnelDaemonRepoPath)
+	check(err)
+
+	wisebotStorageRepoExpandedPath, err = homedir.Expand(wisebotStorageRepoPath)
 	check(err)
 
 	healthzPublishableTopic = fmt.Sprintf("/operator/%s/healthz", wisebotConfig.WisebotID)
@@ -159,6 +168,12 @@ func main() {
 		wisebotTunnelDaemonRepoBranchName = wisebotConfig.TunnelBranch
 	}
 
+	if len(wisebotConfig.StorageBranch) == 0 {
+		wisebotStorageRepoBranchName = defaultBranchName
+	} else {
+		wisebotStorageRepoBranchName = wisebotConfig.StorageBranch
+	}
+
 	log := logger.GetLogger().WithField("version", operatorVersion)
 	log.Info("Starting")
 
@@ -204,6 +219,12 @@ func main() {
 		git.NpmInstallHook,
 	)
 
+	storageRepo := git.NewRepo(
+		wisebotStorageRepoExpandedPath,
+		wisebotStorageRepoRemote,
+		wisebotStorageRepoBranchName,
+	)
+
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
 		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
@@ -217,6 +238,7 @@ func main() {
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
+		"sudo",
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)
@@ -235,6 +257,10 @@ func main() {
 		"sudo",
 		"node",
 		wisebotButtonRepoExpandedPath+"/index.js",
+	)
+
+	wisebotStorageCommand := command.NewCommand(
+		wisebotStorageRepoExpandedPath + "/wisebot-storage",
 	)
 
 	// ----- Initialize MQTT client
@@ -262,6 +288,7 @@ func main() {
 	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 	services.Save(wisebotScriptServiceName, wisebotScriptCommand, scriptRepo)
 	services.Save(wisebotButtonServiceName, wisebotButtonCommand, buttonRepo)
+	services.Save(wisebotStorageServiceName, wisebotStorageCommand, storageRepo)
 
 	processManager = &ProcessManager{
 		MQTTClient: mqttClient,
