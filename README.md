@@ -137,6 +137,6 @@ THe operator will be listening the following topics.
 ## TODO
 
 - [X] Connect to aws iot
-- [ ] Update itself
+- [X] Update itself
 - [X] Update core process
 - [X] Connect with BLE server/service
