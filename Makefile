@@ -4,8 +4,9 @@ BIN_FOLDER=$(PWD)/bin
 BIN=$(BIN_FOLDER)/$(APP)
 UPLOADER_BIN=$(BIN_FOLDER)/$(UPLOADER_APP)
 
-VERSION=1.4.0
-TEST_WISEBOT_IP=192.168.0.24
+VERSION=1.8.0
+TEST_WISEBOT_IP=wisebot.local
+TEST_WISEBOT_SSH_PORT=5555
 GIT_SHA=`git rev-parse --short HEAD`
 BASE_URL=https://s3.us-west-2.amazonaws.com/wisebot-operator-releases/operator-
 REGION=us-west-2
@@ -43,7 +44,7 @@ clean-all:
 upload:
 	@echo "[upload] Starting..."
 	@cp $(BIN)-$(VERSION) $(BIN)
-	@scp $(BIN) pi@$(TEST_WISEBOT_IP):~
+	@scp -P $(TEST_WISEBOT_SSH_PORT) $(BIN) pi@$(TEST_WISEBOT_IP):~
 	@rm $(BIN)
 	@echo "[upload] Done"
 

@@ -34,8 +34,11 @@ type healthzDataResponse struct {
 }
 
 type healthzMetaResponse struct {
-	MQTTStatus mqttStatus `json:"mqtt_status"`
-	Version    string     `json:"version"`
+	MQTTStatus          mqttStatus   `json:"mqtt_status"`
+	WifiStatus          wifiStatus   `json:"wifi_status"`
+	SSHTunnelStatus     tunnelStatus `json:"ssh_tunnel_status"`
+	StorageTunnelStatus tunnelStatus `json:"storage_tunnel_status"`
+	Version             string       `json:"version"`
 }
 
 type manageServiceHTTPRequest struct {
@@ -44,6 +47,68 @@ type manageServiceHTTPRequest struct {
 
 type mqttStatus struct {
 	IsConnected bool `json:"is_connected"`
+}
+
+/*
+{
+  "data": {
+    "is_connected":true,
+    "essid":"OpenWrt"
+  }
+}
+*/
+type networkOperatorResponse struct {
+	Data wifiStatus `json:"data"`
+}
+type wifiStatus struct {
+	IsConnected bool   `json:"is_connected"`
+	ESSID       string `json:"essid"`
+	Error       bool   `json:"error"`
+}
+
+/*
+{
+  "data":{
+    "status":"connected",
+    "tunnel":{
+      "id":"8d296d36a3062cd5",
+      "url":"tcp://tunnel.wisegrowth.app:44483",
+      "proto":"tcp",
+      "port":"44483"
+    }
+  },
+  "meta":{
+    "timestamp":"2018-09-04T08:54:28.969Z",
+    "version":"1.2.1"
+  }
+}
+*/
+type tunnelResponse struct {
+	Data tunnelData `json:"data"`
+	Meta tunnelMeta `json:"meta"`
+}
+
+type tunnelData struct {
+	Status string     `json:"status"`
+	Tunnel tunnelInfo `json:"tunnel"`
+}
+
+type tunnelInfo struct {
+	ID    string `json:"id"`
+	URL   string `json:"url"`
+	Proto string `json:"proto"`
+	Port  string `json:"port"`
+}
+
+type tunnelMeta struct {
+	Timestamp string `json:"timestamp"`
+	Version   string `json:"version"`
+}
+
+type tunnelStatus struct {
+	Status string `json:"status"`
+	Port   string `json:"port"`
+	Error  bool   `json:"error"`
 }
 
 type updateHTTPPayload struct {
@@ -58,6 +123,51 @@ func newHealthResponse() *healthResponse {
 	meta := new(healthzMetaResponse)
 	meta.MQTTStatus.IsConnected = processManager.MQTTClient.IsConnected()
 	meta.Version = version
+
+	wifi := new(networkOperatorResponse)
+	//TODO: get url from wisebot config file
+	err := getJSON("http://localhost:5020/healthz", wifi)
+	if err != nil {
+		logger.GetLogger().Error(err)
+
+		meta.WifiStatus.IsConnected = false
+		meta.WifiStatus.ESSID = ""
+		meta.WifiStatus.Error = true
+	} else {
+		meta.WifiStatus.IsConnected = wifi.Data.IsConnected
+		meta.WifiStatus.ESSID = wifi.Data.ESSID
+		meta.WifiStatus.Error = false
+	}
+
+	sshTunnel := new(tunnelResponse)
+	//TODO: get url from wisebot config file
+	err = getJSON("http://localhost:5025/healthz", sshTunnel)
+	if err != nil {
+		logger.GetLogger().Warn(err)
+
+		meta.SSHTunnelStatus.Status = ""
+		meta.SSHTunnelStatus.Port = ""
+		meta.SSHTunnelStatus.Error = true
+	} else {
+		meta.SSHTunnelStatus.Status = sshTunnel.Data.Status
+		meta.SSHTunnelStatus.Port = sshTunnel.Data.Tunnel.Port
+		meta.SSHTunnelStatus.Error = false
+	}
+
+	storageTunnel := new(tunnelResponse)
+	//TODO: get url from wisebot config file
+	err = getJSON("http://localhost:5035/healthz", storageTunnel)
+	if err != nil {
+		logger.GetLogger().Warn(err)
+
+		meta.StorageTunnelStatus.Status = ""
+		meta.StorageTunnelStatus.Port = ""
+		meta.StorageTunnelStatus.Error = true
+	} else {
+		meta.StorageTunnelStatus.Status = storageTunnel.Data.Status
+		meta.StorageTunnelStatus.Port = storageTunnel.Data.Tunnel.Port
+		meta.StorageTunnelStatus.Error = false
+	}
 
 	return &healthResponse{
 		Data: data,
