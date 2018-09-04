@@ -53,7 +53,7 @@ type mqttStatus struct {
 {
   "data": {
     "is_connected":true,
-    "essid":"OpenWrt"
+    "essid":"wifiName"
   }
 }
 */
@@ -72,14 +72,14 @@ type wifiStatus struct {
     "status":"connected",
     "tunnel":{
       "id":"8d296d36a3062cd5",
-      "url":"tcp://tunnel.wisegrowth.app:44483",
+      "url":"tcp://tunnel.domain.com:9999",
       "proto":"tcp",
-      "port":"44483"
+      "port":"9999"
     }
   },
   "meta":{
     "timestamp":"2018-09-04T08:54:28.969Z",
-    "version":"1.2.1"
+    "version":"0.0.1"
   }
 }
 */
