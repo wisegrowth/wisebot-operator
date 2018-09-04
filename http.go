@@ -71,7 +71,7 @@ type wifiStatus struct {
   "data":{
     "status":"connected",
     "tunnel":{
-      "id":"8d296d36a3062cd5",
+      "id":"1122334455",
       "url":"tcp://tunnel.domain.com:9999",
       "proto":"tcp",
       "port":"9999"
