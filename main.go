@@ -54,11 +54,12 @@ const (
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
 	wisebotLedDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-led-indicator.git"
 
-	wisebotTunnelDaemonName       = "ssh-tunnel"
-	wisebotTunnelDaemonRepoPath   = "~/wisebot-tunnel"
-	wisebotTunnelDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-tunnel.git"
+	wisebotSSHTunnelDaemonName     = "ssh-tunnel"
+	wisebotStorageTunnelDaemonName = "storage-tunnel"
+	wisebotTunnelDaemonRepoPath    = "~/wisebot-tunnel"
+	wisebotTunnelDaemonRepoRemote  = "git@github.com:wisegrowth/wisebot-tunnel.git"
 
-	wisebotStorageServiceName = "storage"
+	wisebotStorageServiceName = "wisebot-storage"
 	wisebotStorageRepoPath    = "~/wisebot-storage"
 	wisebotStorageRepoRemote  = "git@github.com:wisegrowth/wisebot-storage.git"
 
@@ -67,7 +68,7 @@ const (
 	wisebotConfigPath = "~/.config/wisebot/config.json"
 	wisebotLogPath    = "~/.wisebot/logs/operator.log"
 
-	defaultBranchName = "development"
+	defaultBranchName = "master"
 )
 
 var (
@@ -93,6 +94,8 @@ var (
 
 func init() {
 	var err error
+
+	version = "1.7.0"
 
 	// ----- Load wisebot config
 	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
@@ -231,14 +234,17 @@ func main() {
 		check(err)
 		daemonStore.Save(d)
 
-		d, err = daemon.NewDaemon(wisebotTunnelDaemonName, tunnelDaemonRepo)
+		d, err = daemon.NewDaemon(wisebotSSHTunnelDaemonName, tunnelDaemonRepo)
+		check(err)
+		daemonStore.Save(d)
+
+		d, err = daemon.NewDaemon(wisebotStorageTunnelDaemonName, tunnelDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 	}
 
 	// ----- Initialize commands
 	wisebotCoreCommand := command.NewCommand(
-		"sudo",
 		"node",
 		wisebotCoreRepoExpandedPath+"/build/app/index.js",
 	)

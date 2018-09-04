@@ -149,6 +149,7 @@ func NewClient(configs ...Config) (*Client, error) {
 
 	copts := MQTT.NewClientOptions()
 	copts.SetClientID(client.id)
+	copts.SetAutoReconnect(true)
 	copts.SetMaxReconnectInterval(1 * time.Second)
 	copts.SetOnConnectHandler(client.onConnect())
 	copts.SetConnectionLostHandler(func(c MQTT.Client, err error) {
