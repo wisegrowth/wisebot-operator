@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	operatorVersion                   string
+	operatorVersion string
+
 	wisebotCoreRepoBranchName         string
 	wisebotBleRepoBranchName          string
 	wisebotScriptRepoBranchName       string
@@ -31,6 +32,25 @@ var (
 	wisebotStorageRepoBranchName      string
 	wisebotLedDaemonRepoBranchName    string
 	wisebotTunnelDaemonRepoBranchName string
+
+	version                             string
+	baseURL                             string
+	wisebotCoreRepoExpandedPath         string
+	wisebotBleRepoExpandedPath          string
+	wisebotScriptRepoExpandedPath       string
+	wisebotButtonRepoExpandedPath       string
+	wisebotLedDaemonRepoExpandedPath    string
+	wisebotTunnelDaemonRepoExpandedPath string
+	wisebotStorageRepoExpandedPath      string
+
+	wisebotConfig *config.Config
+	wisebotLogger io.WriteCloser
+
+	healthzPublishableTopic string
+
+	httpServer     *http.Server
+	processManager *ProcessManager
+	daemonStore    *daemon.Store
 )
 
 const (
@@ -71,31 +91,8 @@ const (
 	defaultBranchName = "master"
 )
 
-var (
-	version                             string
-	baseURL                             string
-	wisebotCoreRepoExpandedPath         string
-	wisebotBleRepoExpandedPath          string
-	wisebotScriptRepoExpandedPath       string
-	wisebotButtonRepoExpandedPath       string
-	wisebotLedDaemonRepoExpandedPath    string
-	wisebotTunnelDaemonRepoExpandedPath string
-	wisebotStorageRepoExpandedPath      string
-
-	wisebotConfig *config.Config
-	wisebotLogger io.WriteCloser
-
-	healthzPublishableTopic string
-
-	httpServer     *http.Server
-	processManager *ProcessManager
-	daemonStore    *daemon.Store
-)
-
 func init() {
 	var err error
-
-	version = "1.7.0"
 
 	// ----- Load wisebot config
 	wisebotConfig, err = config.LoadConfig(wisebotConfigPath)
@@ -177,7 +174,7 @@ func main() {
 		wisebotStorageRepoBranchName = wisebotConfig.StorageBranch
 	}
 
-	log := logger.GetLogger().WithField("version", operatorVersion)
+	log := logger.GetLogger().WithField("version", version)
 	log.Info("Starting")
 
 	// ----- Initialize git repos
