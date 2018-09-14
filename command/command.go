@@ -136,8 +136,6 @@ func (c *Command) Stop() error {
 		return nil
 	}
 
-	c.SetStatus(StatusStopped)
-
 	if c.Cmd.Process == nil {
 		log.Debug("Stopped command when c.Cmd.Process was nil")
 		return nil
@@ -154,6 +152,8 @@ func (c *Command) Stop() error {
 	if err := c.Cmd.Process.Signal(os.Interrupt); err != nil {
 		return err
 	}
+
+	c.SetStatus(StatusStopped)
 
 	return <-c.exitError
 }

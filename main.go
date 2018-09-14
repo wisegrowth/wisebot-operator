@@ -216,7 +216,6 @@ func main() {
 		wisebotButtonRepoExpandedPath,
 		wisebotButtonRepoRemote,
 		wisebotButtonRepoBranchName,
-		git.NpmInstallHook,
 	)
 
 	storageRepo := git.NewRepo(
@@ -257,9 +256,7 @@ func main() {
 	)
 
 	wisebotButtonCommand := command.NewCommand(
-		"sudo",
-		"node",
-		wisebotButtonRepoExpandedPath+"/index.js",
+		wisebotButtonRepoExpandedPath + "/wisebot-button",
 	)
 
 	wisebotStorageCommand := command.NewCommand(
