@@ -217,6 +217,21 @@ func stopServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter
 	}
 }
 
+func updateServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	payload := new(manageServiceHTTPRequest)
+	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := processManager.Services.Update(payload.Name); err != nil {
+		getLogger(r).Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func restartServiceHTTPHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	payload := new(manageServiceHTTPRequest)
 	if err := json.NewDecoder(r.Body).Decode(payload); err != nil {
@@ -301,6 +316,7 @@ func NewHTTPServer() *http.Server {
 	router.POST("/service-start", startServiceHTTPHandler)
 	router.POST("/service-stop", stopServiceHTTPHandler)
 	router.POST("/service-restart", restartServiceHTTPHandler)
+	router.POST("/service-update", updateServiceHTTPHandler)
 	router.POST("/update", updateHTTPHandler)
 	router.POST("/restart", restartHTTPHandler)
 

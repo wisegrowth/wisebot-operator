@@ -4,7 +4,7 @@ BIN_FOLDER=$(PWD)/bin
 BIN=$(BIN_FOLDER)/$(APP)
 UPLOADER_BIN=$(BIN_FOLDER)/$(UPLOADER_APP)
 
-VERSION=1.9.0
+VERSION=1.14.0
 TEST_WISEBOT_IP=wisebot.local
 TEST_WISEBOT_SSH_PORT=5555
 GIT_SHA=`git rev-parse --short HEAD`
@@ -44,7 +44,7 @@ clean-all:
 upload:
 	@echo "[upload] Starting..."
 	@cp $(BIN)-$(VERSION) $(BIN)
-	@scp -P $(TEST_WISEBOT_SSH_PORT) $(BIN) pi@$(TEST_WISEBOT_IP):~
+	@scp $(BIN) pi@$(TEST_WISEBOT_IP):~
 	@rm $(BIN)
 	@echo "[upload] Done"
 

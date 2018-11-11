@@ -25,23 +25,25 @@ import (
 var (
 	operatorVersion string
 
-	wisebotCoreRepoBranchName         string
-	wisebotBleRepoBranchName          string
-	wisebotScriptRepoBranchName       string
-	wisebotButtonRepoBranchName       string
-	wisebotStorageRepoBranchName      string
-	wisebotLedDaemonRepoBranchName    string
-	wisebotTunnelDaemonRepoBranchName string
+	wisebotCoreRepoBranchName                  string
+	wisebotBleRepoBranchName                   string
+	wisebotScriptRepoBranchName                string
+	wisebotButtonDaemonRepoBranchName          string
+	wisebotStorageRepoBranchName               string
+	wisebotLedDaemonRepoBranchName             string
+	wisebotTunnelDaemonRepoBranchName          string
+	wisebotNetworkOperatorDaemonRepoBranchName string
 
-	version                             string
-	baseURL                             string
-	wisebotCoreRepoExpandedPath         string
-	wisebotBleRepoExpandedPath          string
-	wisebotScriptRepoExpandedPath       string
-	wisebotButtonRepoExpandedPath       string
-	wisebotLedDaemonRepoExpandedPath    string
-	wisebotTunnelDaemonRepoExpandedPath string
-	wisebotStorageRepoExpandedPath      string
+	version                                      string
+	baseURL                                      string
+	wisebotCoreRepoExpandedPath                  string
+	wisebotBleRepoExpandedPath                   string
+	wisebotScriptRepoExpandedPath                string
+	wisebotButtonDaemonRepoExpandedPath          string
+	wisebotLedDaemonRepoExpandedPath             string
+	wisebotTunnelDaemonRepoExpandedPath          string
+	wisebotStorageRepoExpandedPath               string
+	wisebotNetworkOperatorDaemonRepoExpandedPath string
 
 	wisebotConfig *config.Config
 	wisebotLogger io.WriteCloser
@@ -66,9 +68,13 @@ const (
 	wisebotScriptRepoPath    = "~/wisebot-script"
 	wisebotScriptRepoRemote  = "git@github.com:wisegrowth/wisebot-script.git"
 
-	wisebotButtonServiceName = "wisebot-button"
-	wisebotButtonRepoPath    = "~/wisebot-button"
-	wisebotButtonRepoRemote  = "git@github.com:wisegrowth/wisebot-button.git"
+	wisebotButtonDaemonName       = "wisebot-button"
+	wisebotButtonDaemonRepoPath   = "~/wisebot-button"
+	wisebotButtonDaemonRepoRemote = "git@github.com:wisegrowth/wisebot-button.git"
+
+	wisebotNetworkOperatorDaemonName       = "network-operator"
+	wisebotNetworkOperatorDaemonRepoPath   = "~/network-operator"
+	wisebotNetworkOperatorDaemonRepoRemote = "git@github.com:wisegrowth/network-operator.git"
 
 	wisebotLedDaemonName       = "led"
 	wisebotLedDaemonRepoPath   = "~/wisebot-led-indicator"
@@ -106,13 +112,17 @@ func init() {
 
 	wisebotBleRepoExpandedPath, err = homedir.Expand(wisebotBleRepoPath)
 	check(err)
+
+	wisebotNetworkOperatorDaemonRepoExpandedPath, err = homedir.Expand(wisebotNetworkOperatorDaemonRepoPath)
+	check(err)
+
 	wisebotLedDaemonRepoExpandedPath, err = homedir.Expand(wisebotLedDaemonRepoPath)
 	check(err)
 
 	wisebotScriptRepoExpandedPath, err = homedir.Expand(wisebotScriptRepoPath)
 	check(err)
 
-	wisebotButtonRepoExpandedPath, err = homedir.Expand(wisebotButtonRepoPath)
+	wisebotButtonDaemonRepoExpandedPath, err = homedir.Expand(wisebotButtonDaemonRepoPath)
 	check(err)
 
 	wisebotTunnelDaemonRepoExpandedPath, err = homedir.Expand(wisebotTunnelDaemonRepoPath)
@@ -138,6 +148,12 @@ func main() {
 		wisebotScriptRepoBranchName = wisebotConfig.ScriptBranch
 	}
 
+	if len(wisebotConfig.NetworkOperatorBranch) == 0 {
+		wisebotNetworkOperatorDaemonRepoBranchName = defaultBranchName
+	} else {
+		wisebotNetworkOperatorDaemonRepoBranchName = wisebotConfig.NetworkOperatorBranch
+	}
+
 	if len(wisebotConfig.LedBranch) == 0 {
 		wisebotLedDaemonRepoBranchName = defaultBranchName
 	} else {
@@ -157,9 +173,9 @@ func main() {
 	}
 
 	if len(wisebotConfig.ButtonBranch) == 0 {
-		wisebotButtonRepoBranchName = defaultBranchName
+		wisebotButtonDaemonRepoBranchName = defaultBranchName
 	} else {
-		wisebotButtonRepoBranchName = wisebotConfig.ButtonBranch
+		wisebotButtonDaemonRepoBranchName = wisebotConfig.ButtonBranch
 	}
 
 	if len(wisebotConfig.TunnelBranch) == 0 {
@@ -182,6 +198,12 @@ func main() {
 		wisebotScriptRepoExpandedPath,
 		wisebotScriptRepoRemote,
 		wisebotScriptRepoBranchName,
+	)
+
+	networkOperatorDaemonRepo := git.NewRepo(
+		wisebotNetworkOperatorDaemonRepoExpandedPath,
+		wisebotNetworkOperatorDaemonRepoRemote,
+		wisebotNetworkOperatorDaemonRepoBranchName,
 	)
 
 	ledDaemonRepo := git.NewRepo(
@@ -209,13 +231,13 @@ func main() {
 		wisebotBleRepoExpandedPath,
 		wisebotBleRepoRemote,
 		wisebotBleRepoBranchName,
-		git.YarnInstallHook,
+		git.NpmInstallHook,
 	)
 
-	buttonRepo := git.NewRepo(
-		wisebotButtonRepoExpandedPath,
-		wisebotButtonRepoRemote,
-		wisebotButtonRepoBranchName,
+	buttonDaemonRepo := git.NewRepo(
+		wisebotButtonDaemonRepoExpandedPath,
+		wisebotButtonDaemonRepoRemote,
+		wisebotButtonDaemonRepoBranchName,
 	)
 
 	storageRepo := git.NewRepo(
@@ -226,7 +248,11 @@ func main() {
 
 	// ----- Initialize daemons
 	if runtime.GOOS != "darwin" {
-		d, err := daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
+		d, err := daemon.NewDaemon(wisebotNetworkOperatorDaemonName, networkOperatorDaemonRepo)
+		check(err)
+		daemonStore.Save(d)
+
+		d, err = daemon.NewDaemon(wisebotLedDaemonName, ledDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 
@@ -235,6 +261,10 @@ func main() {
 		daemonStore.Save(d)
 
 		d, err = daemon.NewDaemon(wisebotStorageTunnelDaemonName, tunnelDaemonRepo)
+		check(err)
+		daemonStore.Save(d)
+
+		d, err = daemon.NewDaemon(wisebotButtonDaemonName, buttonDaemonRepo)
 		check(err)
 		daemonStore.Save(d)
 	}
@@ -255,9 +285,9 @@ func main() {
 		wisebotScriptRepoExpandedPath+"/wisebot-script",
 	)
 
-	wisebotButtonCommand := command.NewCommand(
-		wisebotButtonRepoExpandedPath + "/wisebot-button",
-	)
+	// wisebotButtonCommand := command.NewCommand(
+	// 	wisebotButtonRepoExpandedPath + "/wisebot-button",
+	// )
 
 	wisebotStorageCommand := command.NewCommand(
 		wisebotStorageRepoExpandedPath + "/wisebot-storage",
@@ -287,7 +317,7 @@ func main() {
 	services.Save(wisebotCoreServiceName, wisebotCoreCommand, coreRepo)
 	services.Save(wisebotBleServiceName, wisebotBleCommand, bleRepo)
 	services.Save(wisebotScriptServiceName, wisebotScriptCommand, scriptRepo)
-	services.Save(wisebotButtonServiceName, wisebotButtonCommand, buttonRepo)
+	// services.Save(wisebotButtonServiceName, wisebotButtonCommand, buttonRepo)
 	services.Save(wisebotStorageServiceName, wisebotStorageCommand, storageRepo)
 
 	processManager = &ProcessManager{

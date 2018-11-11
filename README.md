@@ -140,3 +140,6 @@ THe operator will be listening the following topics.
 - [X] Update itself
 - [X] Update core process
 - [X] Connect with BLE server/service
+
+
+si repo esta vacio -> fatal: your current branch 'master' does not have any commits yet
